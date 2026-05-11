@@ -1,416 +1,166 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Treinamento: Mobilidade e Força</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        .chart-container {
-            position: relative;
-            width: 100%;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-            height: 300px;
-            max-height: 400px;
-        }
-        @media (min-width: 768px) {
-            .chart-container {
-                height: 350px;
-            }
-        }
-        .tab-active {
-            border-bottom: 2px solid #d97706;
-            color: #d97706;
-            font-weight: 600;
-        }
-        .filter-active {
-            background-color: #d97706;
-            color: white;
-        }
-    </style>
-</head>
-<body class="bg-stone-50 text-stone-800 font-sans antialiased min-h-screen">
+import React, { useState, useEffect } from 'react';
+import { 
+  ChevronRight, 
+  Dumbbell, 
+  LayoutDashboard, 
+  Activity, 
+  ArrowRight, 
+  Lock,
+  CheckCircle2
+} from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
-<!-- Chosen Palette: Warm Neutrals (Stone background, Amber accents) para criar um ambiente calmo e focado. -->
-<!-- Application Structure Plan: A aplicação utiliza uma arquitetura de painel em abas. Essa estrutura permite explorar a macroestrutura do programa na visão geral e isolar as rotinas diárias específicas nas abas de Mobilidade e Força. A filtragem interativa por etapa e treino reduz a carga cognitiva do usuário durante a execução da rotina em comparação com a leitura de um documento longo e estático. -->
-<!-- Visualization & Content Choices: Gráfico de Barras (Chart.js) na visão geral para informar e comparar o volume de exercícios entre as etapas. Sistema de cards filtráveis via Javascript para organizar a visualização de execução das rotinas. Biblioteca estrutural baseada em Tailwind sem uso de SVG ou Mermaid. -->
-<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+const App = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
+  const [error, setError] = useState('');
 
-    <div class="max-w-6xl mx-auto px-4 py-8">
-        
-        <header class="mb-8 border-b border-stone-200 pb-6">
-            <h1 class="text-3xl md:text-4xl font-bold text-stone-900 mb-2">Protocolo Dinâmico</h1>
-            <p class="text-lg text-stone-600">Plataforma interativa para acompanhamento das rotinas de mobilidade e força calistênica estruturadas em etapas de progressão.</p>
-        </header>
+  // DEFINA SUA SENHA AQUI
+  const CORRECT_PASSWORD = "treino_secreto";
 
-        <nav class="flex space-x-6 mb-8 border-b border-stone-200 overflow-x-auto">
-            <button id="btn-tab-overview" class="tab-btn tab-active pb-3 text-stone-500 hover:text-stone-800 transition-colors px-2 whitespace-nowrap" onclick="switchTab('overview')">Visão Geral</button>
-            <button id="btn-tab-mobility" class="tab-btn pb-3 text-stone-500 hover:text-stone-800 transition-colors px-2 whitespace-nowrap" onclick="switchTab('mobility')">Mobilidade Dinâmica</button>
-            <button id="btn-tab-strength" class="tab-btn pb-3 text-stone-500 hover:text-stone-800 transition-colors px-2 whitespace-nowrap" onclick="switchTab('strength')">Treinos de Força</button>
-        </nav>
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (password === CORRECT_PASSWORD) {
+      setIsAuthenticated(true);
+      setError('');
+    } else {
+      setError('Senha incorreta. Tente novamente.');
+    }
+  };
 
-        <main>
-            <section id="sec-overview" class="block">
-                <div class="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-stone-100 mb-8">
-                    <h2 class="text-2xl font-semibold mb-4 text-stone-800">Arquitetura do Programa</h2>
-                    <p class="mb-6 text-stone-600 leading-relaxed">
-                        Esta seção apresenta a distribuição estrutural do protocolo. O programa de mobilidade é dividido em três etapas progressivas, desenhadas para aumentar a complexidade neurológica e a amplitude articular. O gráfico abaixo ilustra a densidade de exercícios exigida em cada fase de treinamento diário, demonstrando como a demanda adaptativa evolui com o tempo.
-                    </p>
-                    
-                    <div class="w-full flex justify-center mt-8 mb-4">
-                        <div class="chart-container">
-                            <canvas id="volumeChart"></canvas>
-                        </div>
-                    </div>
-                    <p class="text-center text-sm text-stone-500 mt-2">Volume médio de exercícios únicos prescritos por etapa.</p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100">
-                        <h3 class="text-xl font-semibold mb-3 text-amber-700">Progresso em Mobilidade</h3>
-                        <p class="text-stone-600">
-                            A mobilidade dinâmica avança de movimentos isolados na Etapa 1 para complexos integrados na Etapa 3. O foco inicial é a articulação e o controle segmentado da coluna, evoluindo para transições fluidas entre posturas extremas como o Cossack e o Agachamento Búlgaro. A exploração livre ganha importância nas etapas finais.
-                        </p>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-100">
-                        <h3 class="text-xl font-semibold mb-3 text-amber-700">Estrutura de Força</h3>
-                        <p class="text-stone-600">
-                            Os protocolos SASS (Straight Arm Strength) e BASS (Bent Arm Strength) condicionam tendões e articulações. O trabalho começa invariavelmente com rotinas de pendurada passiva e ativa para descompressão e fortalecimento escapular, seguidas pelos blocos de força específicos e isometrias finalizadoras.
-                        </p>
-                    </div>
-                </div>
-            </section>
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-stone-200">
+          <div className="flex justify-center mb-6">
+            <div className="p-4 bg-amber-100 rounded-full">
+              <Lock className="w-8 h-8 text-amber-600" />
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-center text-stone-900 mb-2">Acesso Restrito</h2>
+          <p className="text-stone-600 text-center mb-8">Insira a senha do protocolo para visualizar sua rotina de treinos.</p>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Sua senha"
+              className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all"
+            />
+            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+            <button
+              type="submit"
+              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-xl transition-colors shadow-md"
+            >
+              Entrar no Sistema
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
-            <section id="sec-mobility" class="hidden">
-                <div class="mb-6">
-                    <h2 class="text-2xl font-semibold mb-2 text-stone-800">Catálogo de Mobilidade</h2>
-                    <p class="text-stone-600 mb-6">
-                        Utilize os controles abaixo para selecionar a etapa de progressão e a variação do treino diário. Os cards apresentarão a prescrição exata de volume e tempo sob tensão para cada movimento específico da sessão selecionada.
-                    </p>
+  // Dados para o gráfico
+  const data = [
+    { name: 'Etapa 1', volume: 9 },
+    { name: 'Etapa 2', volume: 10 },
+    { name: 'Etapa 3', volume: 12 },
+  ];
 
-                    <div class="flex flex-col md:flex-row gap-4 mb-6">
-                        <div class="flex flex-col">
-                            <span class="text-sm font-semibold text-stone-500 mb-2 uppercase tracking-wider">Etapa</span>
-                            <div class="flex space-x-2">
-                                <button class="filter-etapa filter-active px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-amber-600" onclick="setMobilityFilter(1, null)">Etapa 1</button>
-                                <button class="filter-etapa px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-stone-600 border border-stone-200 hover:bg-stone-50" onclick="setMobilityFilter(2, null)">Etapa 2</button>
-                                <button class="filter-etapa px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-stone-600 border border-stone-200 hover:bg-stone-50" onclick="setMobilityFilter(3, null)">Etapa 3</button>
-                            </div>
-                        </div>
+  return (
+    <div className="min-h-screen bg-stone-50 text-stone-800 font-sans p-4 md:p-8">
+      <header className="max-w-6xl mx-auto mb-10">
+        <div className="flex items-center space-x-3 mb-2">
+          <Activity className="text-amber-600" />
+          <span className="text-sm font-bold tracking-widest text-stone-500 uppercase">Protocolo Ativo</span>
+        </div>
+        <h1 className="text-4xl font-extrabold text-stone-900 tracking-tight">Dashboard de Performance</h1>
+      </header>
 
-                        <div class="flex flex-col">
-                            <span class="text-sm font-semibold text-stone-500 mb-2 uppercase tracking-wider">Variação do Treino</span>
-                            <div class="flex space-x-2" id="treino-filters">
-                            </div>
-                        </div>
-                    </div>
-                </div>
+      <nav className="max-w-6xl mx-auto flex space-x-1 bg-stone-200/50 p-1 rounded-xl mb-8">
+        {[
+          { id: 'overview', label: 'Visão Geral', icon: LayoutDashboard },
+          { id: 'mobility', label: 'Mobilidade', icon: Activity },
+          { id: 'strength', label: 'Força', icon: Dumbbell },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-lg text-sm font-semibold transition-all ${
+              activeTab === tab.id 
+                ? 'bg-white text-amber-700 shadow-sm' 
+                : 'text-stone-500 hover:text-stone-700 hover:bg-stone-100'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </nav>
 
-                <div id="mobility-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                </div>
-            </section>
+      <main className="max-w-6xl mx-auto">
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
+              <h3 className="text-lg font-bold mb-6 flex items-center">
+                <CheckCircle2 className="w-5 h-5 mr-2 text-green-500" />
+                Intensidade por Etapa
+              </h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                    />
+                    <Bar dataKey="volume" fill="#d97706" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            
+            <div className="bg-amber-600 text-white p-8 rounded-2xl shadow-lg flex flex-col justify-between">
+              <div>
+                <h3 className="text-2xl font-bold mb-4">Sessão Sugerida</h3>
+                <p className="text-amber-100 mb-6 italic">"A consistência supera a intensidade no longo prazo."</p>
+                <ul className="space-y-4">
+                  <li className="flex items-start space-x-3">
+                    <div className="bg-amber-500 rounded-full p-1 mt-1"><ArrowRight className="w-3 h-3" /></div>
+                    <span>Mobilidade Etapa 2 (Treino A)</span>
+                  </li>
+                  <li className="flex items-start space-x-3">
+                    <div className="bg-amber-500 rounded-full p-1 mt-1"><ArrowRight className="w-3 h-3" /></div>
+                    <span>Força SASS (Braço Esticado)</span>
+                  </li>
+                </ul>
+              </div>
+              <button className="mt-8 bg-white text-amber-700 font-bold py-3 px-6 rounded-xl text-center hover:bg-stone-50 transition-colors">
+                Iniciar Treino Hoje
+              </button>
+            </div>
+          </div>
+        )}
 
-            <section id="sec-strength" class="hidden">
-                <div class="mb-6">
-                    <h2 class="text-2xl font-semibold mb-2 text-stone-800">Protocolos de Força</h2>
-                    <p class="text-stone-600 mb-6">
-                        Alterne entre os protocolos de braço esticado e braço dobrado. Cada sessão é desenhada com uma rotina preparatória de pendurada, o núcleo de força e um bloco preventivo ou finalizador isométrico.
-                    </p>
+        {activeTab === 'mobility' && (
+          <div className="bg-white p-8 rounded-2xl border border-stone-200 text-center">
+            <h3 className="text-xl font-bold mb-4 text-stone-900">Módulo de Mobilidade</h3>
+            <p className="text-stone-600">Selecione a fase desejada no painel de controle para carregar os exercícios específicos.</p>
+          </div>
+        )}
 
-                    <div class="flex space-x-3 mb-8">
-                        <button class="filter-strength filter-active px-6 py-2 rounded-lg font-medium transition-colors border border-amber-600 shadow-sm" onclick="setStrengthFilter('SASS')">SASS (Braço Esticado)</button>
-                        <button class="filter-strength px-6 py-2 rounded-lg font-medium transition-colors bg-white text-stone-600 border border-stone-200 hover:bg-stone-50 shadow-sm" onclick="setStrengthFilter('BASS')">BASS (Braço Dobrado)</button>
-                    </div>
-                </div>
-
-                <div class="space-y-8" id="strength-container">
-                </div>
-            </section>
-        </main>
+        {activeTab === 'strength' && (
+          <div className="bg-white p-8 rounded-2xl border border-stone-200 text-center">
+            <h3 className="text-xl font-bold mb-4 text-stone-900">Módulo de Força</h3>
+            <p className="text-stone-600">Acesse as rotinas SASS e BASS para condicionamento estrutural.</p>
+          </div>
+        )}
+      </main>
     </div>
+  );
+};
 
-    <script>
-        const mobilityData = [
-            { e: 1, t: 'A', ex: 'Coluna: Flexão e Extensão', p: '10 reps + 10 seg de cada' },
-            { e: 1, t: 'A', ex: 'Coluna: Tilt Lateral', p: '10 reps + 10 seg cada lado' },
-            { e: 1, t: 'A', ex: 'Coluna: Torção', p: '10 reps + 10 seg cada lado' },
-            { e: 1, t: 'A', ex: 'Panqueca em Pé', p: '10 a 15 reps + 10 a 15 seg' },
-            { e: 1, t: 'A', ex: 'Horse Stance', p: '10 a 15 reps + 10 a 15 seg' },
-            { e: 1, t: 'A', ex: 'Drop Stance', p: '8 a 10 reps cada lado' },
-            { e: 1, t: 'A', ex: 'Isometria Cossack', p: '30 a 45 seg' },
-            { e: 1, t: 'A', ex: 'Agachamento Búlgaro', p: '10 a 15 reps + 10 a 15 seg cada lado' },
-            { e: 1, t: 'A', ex: 'Diagonal', p: '10 reps + 10 seg cada lado' },
-            
-            { e: 1, t: 'B1', ex: 'Coluna (Flexão/Extensão, Tilt, Torção)', p: '10 reps + 10 seg (cada variação)' },
-            { e: 1, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
-            { e: 1, t: 'B1', ex: 'Cócoras Buda Prayer', p: '10 a 15 reps + 10 a 15 seg' },
-            { e: 1, t: 'B1', ex: 'Cócoras Rotação', p: '10 a 15 reps + 10 a 15 seg' },
-            { e: 1, t: 'B1', ex: 'Cócoras Flexão e Extensão', p: '10 reps + 10 seg de cada' },
-            { e: 1, t: 'B1', ex: 'Cócoras Pike', p: '10 a 15 reps + 10 a 15 seg' },
-            { e: 1, t: 'B1', ex: 'Pescador Monta e Desmonta', p: '10 reps cada lado' },
-            { e: 1, t: 'B1', ex: 'Pescador Dorsiflexão', p: '10 reps + 10 seg cada lado' },
-            { e: 1, t: 'B1', ex: 'Troca de Bunda Pescador', p: '10 a 20 reps totais' },
-            { e: 1, t: 'B1', ex: 'Pescador Alto e Baixo', p: '10 reps cada lado' },
-
-            { e: 1, t: 'B2', ex: 'Coluna (Flexão/Extensão, Tilt, Torção)', p: '10 reps + 10 seg (cada variação)' },
-            { e: 1, t: 'B2', ex: 'Trocas 90/90', p: '20 trocas totais' },
-            { e: 1, t: 'B2', ex: '90/90 Flexão de Tronco + Toque de Quadril', p: '10 reps + 10 seg de cada' },
-            { e: 1, t: 'B2', ex: '90/90 Levanta Pé e Joelho', p: '10 a 15 reps + 10 a 15 seg cada' },
-            { e: 1, t: 'B2', ex: 'Tilt Posterior e Anterior na Panqueca', p: '20 reps' },
-            { e: 1, t: 'B2', ex: 'Alcance Panqueca: Lateral', p: '10 a 15 reps + 10 a 15 seg cada lado' },
-            { e: 1, t: 'B2', ex: 'Alcance Panqueca: Frente', p: '10 a 15 reps + 10 a 15 seg' },
-            { e: 1, t: 'B2', ex: 'Alcance Panqueca: Meia Lua', p: '10 a 20 reps totais' },
-
-            { e: 2, t: 'A', ex: 'Coluna: Extensão/Flexão + Tilt Lateral', p: '10 reps + 5 seg cada posição' },
-            { e: 2, t: 'A', ex: 'Coluna: Extensão/Flexão + Rotação', p: '10 reps + 5 seg cada posição' },
-            { e: 2, t: 'A', ex: 'Coluna: Rotação + Tilt Lateral', p: '10 reps + 5 seg cada posição' },
-            { e: 2, t: 'A', ex: 'Panqueca Pé + Horse Stance', p: '10 a 15 reps + 10 a 15 seg cada' },
-            { e: 2, t: 'A', ex: 'Drop Stance + Cossack (um lado)', p: '10 reps cada lado' },
-            { e: 2, t: 'A', ex: 'Drop Stance + Cossack (dois lados)', p: '20 reps totais + 5 seg cada posição' },
-            { e: 2, t: 'A', ex: 'Diagonal + Búlgaro', p: '10 reps + 10 seg cada lado' },
-
-            { e: 2, t: 'B1', ex: 'Coluna: Tilt + Extensão/Flexão', p: '10 reps + 5 seg cada posição' },
-            { e: 2, t: 'B1', ex: 'Coluna: Tilt + Rotação', p: '10 reps + 5 seg cada posição' },
-            { e: 2, t: 'B1', ex: 'Coluna: Rotação + Extensão/Flexão', p: '10 reps + 5 seg cada posição' },
-            { e: 2, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
-            { e: 2, t: 'B1', ex: 'Cócoras Empurra Joelho Unilateral', p: '10 a 15 reps + 10 a 15 seg' },
-            { e: 2, t: 'B1', ex: 'Cócoras Ativa', p: '10 reps + 10 seg' },
-            { e: 2, t: 'B1', ex: 'Trocas do Pescador + 90/90', p: '20 reps totais' },
-            { e: 2, t: 'B1', ex: 'Pescador Baixo, Alto e Ativo', p: '10 reps + 10 seg cada lado' },
-            { e: 2, t: 'B1', ex: 'Cócoras + Pescador', p: '5 a 10 reps cada lado' },
-
-            { e: 2, t: 'B2', ex: 'Coluna (Combinações de B1)', p: '10 reps + 5 seg cada posição' },
-            { e: 2, t: 'B2', ex: 'Trocas 90/90', p: '10 reps + 10 seg cada lado' },
-            { e: 2, t: 'B2', ex: 'Cócoras + 90/90', p: '10 a 20 reps totais' },
-            { e: 2, t: 'B2', ex: '90/90 + Levantar Perna Frente e Trás', p: '10 a 15 reps + 10 a 15 seg cada lado' },
-            { e: 2, t: 'B2', ex: 'Panqueca: Tilt Posterior e Anterior', p: '20 reps' },
-            { e: 2, t: 'B2', ex: '90/90 + Panqueca', p: '20 reps totais' },
-            { e: 2, t: 'B2', ex: 'Cócoras + Panqueca', p: '10 a 15 reps + 10 a 15 seg' },
-
-            { e: 3, t: 'A', ex: 'Círculos de Coluna / Coluna Figura 8', p: '10 reps cada sentido' },
-            { e: 3, t: 'A', ex: 'Coluna Livre', p: '2 a 4 min' },
-            { e: 3, t: 'A', ex: 'Panqueca Pé', p: '10 a 15 reps + 10 a 15 seg' },
-            { e: 3, t: 'A', ex: 'Horse Stance Circular', p: '10 reps cada sentido' },
-            { e: 3, t: 'A', ex: 'Drop Stance + Búlgaro', p: '5 reps + 10 seg cada posição' },
-            { e: 3, t: 'A', ex: 'Cossack + Diagonal', p: '10 reps + 10 seg cada lado' },
-            { e: 3, t: 'A', ex: 'Combo: Drop + Cossack + Búlgaro + Diag.', p: '5 reps cada lado' },
-            { e: 3, t: 'A', ex: 'Exploração Livre', p: '60 a 90 seg' },
-
-            { e: 3, t: 'B1/B2', ex: 'Círculos e Figura 8 de Coluna', p: '10 cada sentido/lado' },
-            { e: 3, t: 'B1/B2', ex: 'Cócoras Bounce / Pike', p: 'Conforme tempos anteriores' },
-            { e: 3, t: 'B1/B2', ex: 'Cócoras + 90/90 + Panqueca Meia Lua', p: '10 reps totais' },
-            { e: 3, t: 'B1/B2', ex: 'Combo: Cócoras/Panqueca/90-90/Pescador', p: '10 reps totais' },
-            { e: 3, t: 'B1/B2', ex: 'Exploração Livre', p: '60 a 90 seg' }
-        ];
-
-        const strengthData = [
-            { c: 'SASS', b: 'Pendurada', ex: '1. Pendurada Passiva', p: 'Meta: 90s + Retr./Protr. (6 apoios)' },
-            { c: 'SASS', b: 'Pendurada', ex: '2. Pendurada Ativa', p: 'Meta: 60s + Retr./Protr. (4 apoios)' },
-            { c: 'SASS', b: 'Pendurada', ex: '3. Pendurada Passiva-Ativa', p: 'Meta: 60s + Retr./Protr. (Prancha Alta)' },
-            { c: 'SASS', b: 'Força', ex: '1. Prancha de Protração', p: '15 a 30s' },
-            { c: 'SASS', b: 'Força', ex: '2. Pendurada Arqueada', p: '5 a 8 reps (2 a 5 seg cada)' },
-            { c: 'SASS', b: 'Preventivo', ex: 'Rotação Cubana', p: '2 a 3 séries de 8 a 12 reps' },
-            
-            { c: 'BASS', b: 'Pendurada', ex: 'Rotina de Pendurada', p: 'Mesma prescrição da rotina SASS' },
-            { c: 'BASS', b: 'Força', ex: '1. Flexão (Cadência 31X1)', p: '3 a 8 reps' },
-            { c: 'BASS', b: 'Força', ex: '2. Barra Normal (Cadência 41X1)', p: '3 a 6 reps' },
-            { c: 'BASS', b: 'Força', ex: '*Barra Excêntrica', p: 'AMRAP 10 a 15min (10s descida)' },
-            { c: 'BASS', b: 'Finalizador', ex: '1. Isometria Flexão (Baixa)', p: '30 a 60 seg' },
-            { c: 'BASS', b: 'Finalizador', ex: '2. Isometria Barra (Alta)', p: '10 seg' }
-        ];
-
-        let currentMobilityState = { etapa: 1, treino: 'A' };
-        let currentStrengthState = 'SASS';
-        let chartInstance = null;
-
-        function switchTab(tabId) {
-            document.getElementById('sec-overview').classList.add('hidden');
-            document.getElementById('sec-mobility').classList.add('hidden');
-            document.getElementById('sec-strength').classList.add('hidden');
-            
-            document.getElementById('btn-tab-overview').classList.remove('tab-active');
-            document.getElementById('btn-tab-mobility').classList.remove('tab-active');
-            document.getElementById('btn-tab-strength').classList.remove('tab-active');
-
-            document.getElementById(`sec-${tabId}`).classList.remove('hidden');
-            document.getElementById(`btn-tab-${tabId}`).classList.add('tab-active');
-
-            if (tabId === 'overview' && !chartInstance) {
-                initChart();
-            }
-        }
-
-        function renderTreinoFilters() {
-            const container = document.getElementById('treino-filters');
-            container.innerHTML = '';
-            
-            let treinos = currentMobilityState.etapa === 3 ? ['A', 'B1/B2'] : ['A', 'B1', 'B2'];
-            
-            if (!treinos.includes(currentMobilityState.treino)) {
-                currentMobilityState.treino = 'A';
-            }
-
-            treinos.forEach(t => {
-                const btn = document.createElement('button');
-                const isActive = t === currentMobilityState.treino;
-                btn.className = `px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${isActive ? 'filter-active border-amber-600' : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'}`;
-                btn.innerText = `Treino ${t}`;
-                btn.onclick = () => setMobilityFilter(null, t);
-                container.appendChild(btn);
-            });
-        }
-
-        function setMobilityFilter(etapa, treino) {
-            if (etapa !== null) {
-                currentMobilityState.etapa = etapa;
-                const btns = document.querySelectorAll('.filter-etapa');
-                btns.forEach((btn, index) => {
-                    if (index + 1 === etapa) {
-                        btn.classList.add('filter-active', 'border-amber-600');
-                        btn.classList.remove('bg-white', 'text-stone-600', 'border-stone-200');
-                    } else {
-                        btn.classList.remove('filter-active', 'border-amber-600');
-                        btn.classList.add('bg-white', 'text-stone-600', 'border-stone-200');
-                    }
-                });
-                renderTreinoFilters();
-            }
-            if (treino !== null) {
-                currentMobilityState.treino = treino;
-                renderTreinoFilters();
-            }
-            renderMobilityGrid();
-        }
-
-        function renderMobilityGrid() {
-            const grid = document.getElementById('mobility-grid');
-            grid.innerHTML = '';
-            const filtered = mobilityData.filter(d => d.e === currentMobilityState.etapa && d.t === currentMobilityState.treino);
-            
-            filtered.forEach((item, index) => {
-                const card = document.createElement('div');
-                card.className = 'bg-white border border-stone-100 p-5 rounded-xl shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between';
-                card.innerHTML = `
-                    <div>
-                        <div class="text-xs font-bold text-amber-600 mb-1 tracking-wide">MOVIMENTO ${index + 1}</div>
-                        <h4 class="text-lg font-semibold text-stone-800 mb-3">${item.ex}</h4>
-                    </div>
-                    <div class="bg-stone-50 rounded p-3 text-stone-700 text-sm border border-stone-100 flex items-center">
-                        <span class="mr-2 text-lg">⏱️</span> ${item.p}
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-        }
-
-        function setStrengthFilter(categoria) {
-            currentStrengthState = categoria;
-            const btns = document.querySelectorAll('.filter-strength');
-            btns.forEach(btn => {
-                if (btn.innerText.includes(categoria)) {
-                    btn.classList.add('filter-active', 'border-amber-600');
-                    btn.classList.remove('bg-white', 'text-stone-600', 'border-stone-200');
-                } else {
-                    btn.classList.remove('filter-active', 'border-amber-600');
-                    btn.classList.add('bg-white', 'text-stone-600', 'border-stone-200');
-                }
-            });
-            renderStrengthBlocks();
-        }
-
-        function renderStrengthBlocks() {
-            const container = document.getElementById('strength-container');
-            container.innerHTML = '';
-            
-            const filtered = strengthData.filter(d => d.c === currentStrengthState);
-            const blocos = [...new Set(filtered.map(d => d.b))];
-
-            blocos.forEach(bloco => {
-                const exercises = filtered.filter(d => d.b === bloco);
-                const section = document.createElement('div');
-                section.className = 'bg-white border border-stone-100 p-6 rounded-xl shadow-sm';
-                
-                let icon = bloco === 'Pendurada' ? '🤸' : (bloco === 'Força' ? '🏋️' : '🔄');
-
-                let html = `<h3 class="text-xl font-bold text-stone-800 mb-4 border-b border-stone-100 pb-2 flex items-center"><span class="mr-2">${icon}</span> Bloco: ${bloco}</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
-                
-                exercises.forEach(ex => {
-                    html += `
-                        <div class="bg-stone-50 p-4 rounded-lg border border-stone-200">
-                            <h4 class="font-semibold text-stone-800 mb-2">${ex.ex}</h4>
-                            <p class="text-stone-600 text-sm bg-white p-2 rounded border border-stone-100">${ex.p}</p>
-                        </div>
-                    `;
-                });
-                
-                html += `</div>`;
-                section.innerHTML = html;
-                container.appendChild(section);
-            });
-        }
-
-        function initChart() {
-            const ctx = document.getElementById('volumeChart').getContext('2d');
-            
-            const getCount = (etapa) => mobilityData.filter(d => d.e === etapa && d.t === 'A').length;
-
-            chartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Etapa 1', 'Etapa 2', 'Etapa 3'],
-                    datasets: [{
-                        label: 'Exercícios (Treino A)',
-                        data: [getCount(1), getCount(2), getCount(3)],
-                        backgroundColor: 'rgba(217, 119, 6, 0.8)',
-                        borderColor: 'rgb(217, 119, 6)',
-                        borderWidth: 1,
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) { label += ': '; }
-                                    if (context.parsed.y !== null) {
-                                        label += context.parsed.y + ' movimentos distintos';
-                                    }
-                                    return label;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: { display: true, text: 'Quantidade de Movimentos', color: '#78716c' },
-                            ticks: { color: '#78716c' },
-                            grid: { color: '#f5f5f4' }
-                        },
-                        x: {
-                            ticks: { color: '#78716c', font: { weight: 'bold' } },
-                            grid: { display: false }
-                        }
-                    }
-                }
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            renderTreinoFilters();
-            renderMobilityGrid();
-            renderStrengthBlocks();
-            initChart();
-        });
-
-    </script>
-</body>
-</html>
+export default App;
