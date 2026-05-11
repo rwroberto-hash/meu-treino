@@ -31,7 +31,7 @@
 </head>
 <body class="bg-stone-50 text-stone-800 antialiased">
     <!-- Chosen Palette: Warm Neutrals (Stone/Amber) -->
-    <!-- Application Structure Plan: SPA com persistência via Firestore. Implementei um sistema de logs diários onde cada exercício marcado é salvo numa coleção privada do usuário. A arquitetura separa Dados Estáticos (Exercícios) de Dados Dinâmicos (Logs de Execução). -->
+    <!-- Application Structure Plan: SPA com persistência via Firestore. A base de dados foi restaurada para incluir a totalidade dos exercícios extraídos dos documentos de Mobilidade (Etapas 1, 2, 3) e Força (SASS, BASS). O sistema mantém o registo diário sincronizado. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
     <div id="root"></div>
@@ -39,7 +39,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- Configuração Firebase (Injetada pelo ambiente) ---
         const firebaseConfig = JSON.parse(__firebase_config);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -51,19 +50,17 @@
             const [activeTab, setActiveTab] = useState('overview');
             const [error, setError] = useState('');
             
-            // Filtros e Estado de Treino
             const [mobilityEtapa, setMobilityEtapa] = useState(1);
             const [mobilityTreino, setMobilityTreino] = useState('A');
             const [strengthType, setStrengthType] = useState('SASS');
             const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-            const [completedLogs, setCompletedLogs] = useState({}); // { 'id-exercicio': true }
+            const [completedLogs, setCompletedLogs] = useState({}); 
             const [isSyncing, setIsSyncing] = useState(false);
 
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
             const CORRECT_PASSWORD = "treino_secreto";
 
-            // --- Inicialização Firebase ---
             useEffect(() => {
                 const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
                 const app = initializeApp(firebaseConfig);
@@ -86,12 +83,9 @@
                 return () => unsubscribe();
             }, []);
 
-            // --- Listener de Dados (Firestore) ---
             useEffect(() => {
                 if (!user || !db || !isAuthenticated) return;
                 const { doc, onSnapshot } = window.FirebaseSDK;
-                
-                // Caminho: /artifacts/{appId}/users/{userId}/history/{date}
                 const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'history', selectedDate);
                 
                 const unsubscribe = onSnapshot(docRef, (snapshot) => {
@@ -105,27 +99,122 @@
                 return () => unsubscribe();
             }, [user, db, isAuthenticated, selectedDate]);
 
-            // --- Dados do Treino (Consolidados) ---
             const mobilityData = useMemo(() => [
+                // ETAPA 1
                 { id: 'e1-tA-1', e: 1, t: 'A', ex: 'Coluna - Flexão e Extensão', p: '10 reps + 10 seg de cada' },
                 { id: 'e1-tA-2', e: 1, t: 'A', ex: 'Coluna - Tilt Lateral', p: '10 reps + 10 seg cada lado' },
                 { id: 'e1-tA-3', e: 1, t: 'A', ex: 'Coluna - Torção', p: '10 reps + 10 seg cada lado' },
                 { id: 'e1-tA-4', e: 1, t: 'A', ex: 'Panqueca em Pé', p: '10 a 15 reps + 10 a 15 seg' },
                 { id: 'e1-tA-5', e: 1, t: 'A', ex: 'Horse Stance', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tB1-1', e: 1, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
-                { id: 'e1-tB1-2', e: 1, t: 'B1', ex: 'Cócoras Buda Prayer', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e2-tA-1', e: 2, t: 'A', ex: 'Coluna - Extensão/Flexão + Rotação', p: '10 reps + 5 seg cada' },
-                { id: 'e3-tA-1', e: 3, t: 'A', ex: 'Coluna Figura 8', p: '10 cada sentido' }
-                // ... (restante dos dados omitido por brevidade no exemplo, mas mantido na lógica de render)
+                { id: 'e1-tA-6', e: 1, t: 'A', ex: 'Drop Stance', p: '8 a 10 reps cada lado' },
+                { id: 'e1-tA-7', e: 1, t: 'A', ex: 'Isometria Cossack', p: '30 a 45 seg' },
+                { id: 'e1-tA-8', e: 1, t: 'A', ex: 'Agachamento Búlgaro', p: '10 a 15 reps + 10 a 15 seg cada lado' },
+                { id: 'e1-tA-9', e: 1, t: 'A', ex: 'Diagonal', p: '10 reps + 10 seg cada lado' },
+                
+                { id: 'e1-tB1-1', e: 1, t: 'B1', ex: 'Coluna - Flexão e Extensão', p: '10 reps + 10 seg de cada' },
+                { id: 'e1-tB1-2', e: 1, t: 'B1', ex: 'Coluna - Tilt Lateral', p: '10 reps + 10 seg cada lado' },
+                { id: 'e1-tB1-3', e: 1, t: 'B1', ex: 'Coluna - Torção', p: '10 reps + 10 seg cada lado' },
+                { id: 'e1-tB1-4', e: 1, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
+                { id: 'e1-tB1-5', e: 1, t: 'B1', ex: 'Cócoras Buda Prayer', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e1-tB1-6', e: 1, t: 'B1', ex: 'Cócoras Rotação', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e1-tB1-7', e: 1, t: 'B1', ex: 'Cócoras Flexão e Extensão', p: '10 reps + 10 seg de cada' },
+                { id: 'e1-tB1-8', e: 1, t: 'B1', ex: 'Cócoras Pike', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e1-tB1-9', e: 1, t: 'B1', ex: 'Pescador Monta e Desmonta', p: '10 reps cada lado' },
+                { id: 'e1-tB1-10', e: 1, t: 'B1', ex: 'Pescador Dorsiflexão', p: '10 reps + 10 segundos cada lado' },
+                { id: 'e1-tB1-11', e: 1, t: 'B1', ex: 'Troca de Bunda Pescador', p: '10 a 20 reps totais' },
+                { id: 'e1-tB1-12', e: 1, t: 'B1', ex: 'Pescador Alto e Baixo', p: '10 reps cada lado' },
+
+                { id: 'e1-tB2-1', e: 1, t: 'B2', ex: 'Coluna - Flexão e Extensão', p: '10 reps + 10 seg de cada' },
+                { id: 'e1-tB2-2', e: 1, t: 'B2', ex: 'Coluna - Tilt Lateral', p: '10 reps + 10 seg cada lado' },
+                { id: 'e1-tB2-3', e: 1, t: 'B2', ex: 'Coluna - Torção', p: '10 reps + 10 seg cada lado' },
+                { id: 'e1-tB2-4', e: 1, t: 'B2', ex: 'Trocas 90/90', p: '20 trocas totais' },
+                { id: 'e1-tB2-5', e: 1, t: 'B2', ex: '90/90 Flexão de Tronco + Toque de Quadril', p: '10 reps + 10 segundos de cada' },
+                { id: 'e1-tB2-6', e: 1, t: 'B2', ex: '90/90 Levanta Pé', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e1-tB2-7', e: 1, t: 'B2', ex: '90/90 Levanta Joelho', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e1-tB2-8', e: 1, t: 'B2', ex: '90/90 Levanta Pé (outro lado)', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e1-tB2-9', e: 1, t: 'B2', ex: '90/90 Levanta Joelho (outro lado)', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e1-tB2-10', e: 1, t: 'B2', ex: 'Tilt Posterior e Anterior na Panqueca', p: '20 reps' },
+                { id: 'e1-tB2-11', e: 1, t: 'B2', ex: 'Alcance Panqueca - Lateral', p: '10 a 15 reps + 10 a 15 seg cada lado' },
+                { id: 'e1-tB2-12', e: 1, t: 'B2', ex: 'Alcance Panqueca - Frente', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e1-tB2-13', e: 1, t: 'B2', ex: 'Alcance Panqueca - Meia Lua', p: '10 a 20 reps totais' },
+
+                // ETAPA 2
+                { id: 'e2-tA-1', e: 2, t: 'A', ex: 'Coluna - Extensão/Flexão + Tilt Lateral', p: '10 reps + 5 seg cada posição' },
+                { id: 'e2-tA-2', e: 2, t: 'A', ex: 'Coluna - Extensão/Flexão + Rotação', p: '10 reps + 5 seg cada posição' },
+                { id: 'e2-tA-3', e: 2, t: 'A', ex: 'Coluna - Rotação + Tilt Lateral', p: '10 reps + 5 seg cada posição' },
+                { id: 'e2-tA-4', e: 2, t: 'A', ex: 'Panqueca Pé + Horse Stance', p: '10 a 15 reps + 10 a 15 seg cada' },
+                { id: 'e2-tA-5', e: 2, t: 'A', ex: 'Drop stance + Cossack (um lado)', p: '10 reps cada lado' },
+                { id: 'e2-tA-6', e: 2, t: 'A', ex: 'Drop stance + Cossack (dois lados)', p: '20 reps totais + 5 seg cada' },
+                { id: 'e2-tA-7', e: 2, t: 'A', ex: 'Diagonal + Búlgaro', p: '10 reps + 10 seg cada lado' },
+
+                { id: 'e2-tB1-1', e: 2, t: 'B1', ex: 'Coluna - Tilt Lateral + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
+                { id: 'e2-tB1-2', e: 2, t: 'B1', ex: 'Coluna - Tilt Lateral + Rotação', p: '10 reps + 5 seg cada posição' },
+                { id: 'e2-tB1-3', e: 2, t: 'B1', ex: 'Coluna - Rotação + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
+                { id: 'e2-tB1-4', e: 2, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
+                { id: 'e2-tB1-5', e: 2, t: 'B1', ex: 'Cócoras Empurra Joelho Unilateral', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e2-tB1-6', e: 2, t: 'B1', ex: 'Cócoras Ativa', p: '10 reps + 10 seg' },
+                { id: 'e2-tB1-7', e: 2, t: 'B1', ex: 'Trocas do Pescador + 90/90', p: '20 reps totais' },
+                { id: 'e2-tB1-8', e: 2, t: 'B1', ex: 'Pescador Baixo, Alto e Ativo', p: '10 reps + 10 seg cada lado' },
+                { id: 'e2-tB1-9', e: 2, t: 'B1', ex: 'Cócoras + Pescador', p: '5 a 10 reps cada lado' },
+
+                { id: 'e2-tB2-1', e: 2, t: 'B2', ex: 'Coluna - Tilt Lateral + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
+                { id: 'e2-tB2-2', e: 2, t: 'B2', ex: 'Coluna - Tilt Lateral + Rotação', p: '10 reps + 5 seg cada posição' },
+                { id: 'e2-tB2-3', e: 2, t: 'B2', ex: 'Coluna - Rotação + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
+                { id: 'e2-tB2-4', e: 2, t: 'B2', ex: 'Trocas 90/90', p: '10 reps + 10 seg cada lado' },
+                { id: 'e2-tB2-5', e: 2, t: 'B2', ex: 'Cócoras + 90/90', p: '10 a 20 reps totais' },
+                { id: 'e2-tB2-6', e: 2, t: 'B2', ex: '90/90 + Levantar Perna Frente e Trás', p: '10 a 15 reps + 10 a 15 seg cada lado' },
+                { id: 'e2-tB2-7', e: 2, t: 'B2', ex: 'Panqueca - Tilt Posterior e Anterior', p: '20 reps' },
+                { id: 'e2-tB2-8', e: 2, t: 'B2', ex: '90/90 + Panqueca', p: '20 reps totais' },
+                { id: 'e2-tB2-9', e: 2, t: 'B2', ex: 'Cócoras + Panqueca', p: '10 a 15 reps + 10 a 15 seg' },
+
+                // ETAPA 3
+                { id: 'e3-tA-1', e: 3, t: 'A', ex: 'Círculos de Coluna', p: '10 cada sentido' },
+                { id: 'e3-tA-2', e: 3, t: 'A', ex: 'Coluna Figura 8', p: '10 cada sentido' },
+                { id: 'e3-tA-3', e: 3, t: 'A', ex: 'Coluna Livre', p: '2 a 4 minutos' },
+                { id: 'e3-tA-4', e: 3, t: 'A', ex: 'Panqueca Pé', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e3-tA-5', e: 3, t: 'A', ex: 'Horse Stance Circular', p: '10 reps cada sentido' },
+                { id: 'e3-tA-6', e: 3, t: 'A', ex: 'Drop Stance + Búlgaro', p: '5 reps + 10 seg cada posição' },
+                { id: 'e3-tA-7', e: 3, t: 'A', ex: 'Cossack + Diagonal', p: '10 reps + 10 seg cada lado' },
+                { id: 'e3-tA-8', e: 3, t: 'A', ex: 'Combo: Drop + Cossack + Búlgaro + Diagonal (Um Lado)', p: '5 reps cada lado' },
+                { id: 'e3-tA-9', e: 3, t: 'A', ex: 'Combo: Drop + Cossack + Búlgaro + Diagonal (Completo)', p: '5 reps cada lado' },
+                { id: 'e3-tA-10', e: 3, t: 'A', ex: 'Exploração Livre', p: '60 a 90 seg' },
+
+                { id: 'e3-tB1-1', e: 3, t: 'B1', ex: 'Círculos de Coluna', p: '10 cada lado' },
+                { id: 'e3-tB1-2', e: 3, t: 'B1', ex: 'Coluna Figura 8', p: '10 cada lado' },
+                { id: 'e3-tB1-3', e: 3, t: 'B1', ex: 'Coluna Livre', p: '2 a 4 minutos' },
+                { id: 'e3-tB1-4', e: 3, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
+                { id: 'e3-tB1-5', e: 3, t: 'B1', ex: 'Cócoras Pike', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e3-tB1-6', e: 3, t: 'B1', ex: 'Cócoras + 90/90 + Panqueca Meia Lua', p: '10 reps totais' },
+                { id: 'e3-tB1-7', e: 3, t: 'B1', ex: 'Combo: Cócoras + Panqueca + 90/90 + Pescador + Cócoras', p: '10 reps totais' },
+                { id: 'e3-tB1-8', e: 3, t: 'B1', ex: 'Exploração Livre', p: '60 a 90 seg' },
+
+                { id: 'e3-tB2-1', e: 3, t: 'B2', ex: 'Círculos de Coluna', p: '10 cada lado' },
+                { id: 'e3-tB2-2', e: 3, t: 'B2', ex: 'Coluna Figura 8', p: '10 cada lado' },
+                { id: 'e3-tB2-3', e: 3, t: 'B2', ex: 'Coluna Livre', p: '2 a 4 minutos' },
+                { id: 'e3-tB2-4', e: 3, t: 'B2', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
+                { id: 'e3-tB2-5', e: 3, t: 'B2', ex: 'Cócoras Pike', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'e3-tB2-6', e: 3, t: 'B2', ex: 'Combo: Cócoras + Pescador + 90/90 + Panqueca + 90/90 + Pescador + Cócoras', p: '10 reps totais' },
+                { id: 'e3-tB2-7', e: 3, t: 'B2', ex: 'Exploração Livre', p: '60 a 90 seg' }
             ], []);
 
             const strengthData = useMemo(() => [
-                { id: 's-sass-p1', c: 'SASS', b: 'Pendurada', ex: 'Pendurada Passiva', p: 'Meta: 90s' },
-                { id: 's-sass-p2', c: 'SASS', b: 'Pendurada', ex: 'Pendurada Ativa', p: 'Meta: 60s' },
-                { id: 's-bass-f1', c: 'BASS', b: 'Força', ex: 'Flexão (31X1)', p: '3 a 8 reps' }
+                // SASS
+                { id: 's-sass-p1', c: 'SASS', b: 'Pendurada', ex: '1. Pendurada Passiva', p: 'Meta: 90s + Retr./Protr. (6 apoios)' },
+                { id: 's-sass-p2', c: 'SASS', b: 'Pendurada', ex: '2. Pendurada Ativa', p: 'Meta: 60s + Retr./Protr. (4 apoios)' },
+                { id: 's-sass-p3', c: 'SASS', b: 'Pendurada', ex: '3. Pendurada Passiva-Ativa', p: 'Meta: 60s + Retr./Protr. (Prancha Alta)' },
+                { id: 's-sass-f1', c: 'SASS', b: 'Força', ex: '1. Prancha de Protração', p: '15 a 30s' },
+                { id: 's-sass-f2', c: 'SASS', b: 'Força', ex: '2. Pendurada Arqueada', p: '5 a 8 reps (segurar 2-5s)' },
+                { id: 's-sass-pr1', c: 'SASS', b: 'Preventivo', ex: '1. Rotação Cubana', p: '2 a 3 séries de 8 a 12 reps (Cadência 4020)' },
+                
+                // BASS
+                { id: 's-bass-p1', c: 'BASS', b: 'Pendurada', ex: 'Rotina de Pendurada', p: 'Mesma rotina do SASS (Passiva, Ativa, Passiva-Ativa)' },
+                { id: 's-bass-f1', c: 'BASS', b: 'Força', ex: '1. Flexão', p: '3 a 8 reps (Cadência 31X1)' },
+                { id: 's-bass-f2', c: 'BASS', b: 'Força', ex: '2. Barra Normal', p: '3 a 6 reps (Cadência 41X1)' },
+                { id: 's-bass-f3', c: 'BASS', b: 'Força', ex: '* Barra Excêntrica', p: 'AMRAP 10-15min (10s de descida lenta)' },
+                { id: 's-bass-fi1', c: 'BASS', b: 'Finalizador', ex: '1. Isometria Baixa na Flexão', p: '30 a 60 segundos (empurrada)' },
+                { id: 's-bass-fi2', c: 'BASS', b: 'Finalizador', ex: '2. Isometria Alta na Barra', p: '10 segundos (empurrada)' }
             ], []);
 
-            // --- Ações ---
             const toggleExercise = async (exId) => {
                 if (!user || !db) return;
                 setIsSyncing(true);
@@ -153,7 +242,6 @@
                 }
             };
 
-            // --- Gráfico de Consistência ---
             useEffect(() => {
                 if (isAuthenticated && activeTab === 'overview' && chartRef.current) {
                     if (chartInstance.current) chartInstance.current.destroy();
@@ -322,7 +410,7 @@
                                     ))}
                                 </div>
                                 
-                                {['Pendurada', 'Força', 'Preventivo'].map(bloco => {
+                                {['Pendurada', 'Força', 'Preventivo', 'Finalizador'].map(bloco => {
                                     const exercises = strengthData.filter(d => d.c === strengthType && d.b === bloco);
                                     if (exercises.length === 0) return null;
                                     return (
