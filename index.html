@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,9 +18,19 @@
             width: 100%;
             height: 300px;
         }
+        .filter-active {
+            background-color: #d97706;
+            color: white;
+            border-color: #d97706;
+        }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-800 antialiased">
+    <!-- Chosen Palette: Warm Neutrals (Stone/Amber) -->
+    <!-- Application Structure Plan: Dashboard interativo com autenticação frontal. A navegação é dividida em três pilares: Visão Geral (analítica), Mobilidade (operacional com filtros por etapa) e Força (especializada por tipo de braço). A base de dados foi expandida para incluir 100% dos exercícios dos PDFs originais. -->
+    <!-- Visualization & Content Choices: Gráficos de barras para volume de treino, cards interativos para exercícios e sistema de abas para troca de contexto. Confirmado o uso de Chart.js e Tailwind para construção visual. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
     <div id="root"></div>
 
     <script type="text/babel">
@@ -31,15 +41,147 @@
             const [password, setPassword] = useState('');
             const [activeTab, setActiveTab] = useState('overview');
             const [error, setError] = useState('');
+            
+            // Estados de filtro
+            const [mobilityEtapa, setMobilityEtapa] = useState(1);
+            const [mobilityTreino, setMobilityTreino] = useState('A');
+            const [strengthType, setStrengthType] = useState('SASS');
+
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
 
-            // DEFINA SUA SENHA AQUI
+            // DEFINA A SENHA AQUI
             const CORRECT_PASSWORD = "treino_secreto";
 
+            // Base de Dados Completa de Mobilidade
+            const mobilityData = [
+                // ETAPA 1 - TREINO A
+                { e: 1, t: 'A', ex: 'Coluna - Flexão e Extensão', p: '10 reps + 10 seg de cada' },
+                { e: 1, t: 'A', ex: 'Coluna - Tilt Lateral', p: '10 reps + 10 seg cada lado' },
+                { e: 1, t: 'A', ex: 'Coluna - Torção', p: '10 reps + 10 seg cada lado' },
+                { e: 1, t: 'A', ex: 'Panqueca em Pé', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 1, t: 'A', ex: 'Horse Stance', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 1, t: 'A', ex: 'Drop Stance', p: '8 a 10 reps cada lado' },
+                { e: 1, t: 'A', ex: 'Isometria Cossack', p: '30 a 45 seg' },
+                { e: 1, t: 'A', ex: 'Agachamento Búlgaro', p: '10 a 15 reps + 10 a 15 seg cada lado' },
+                { e: 1, t: 'A', ex: 'Diagonal', p: '10 reps + 10 seg cada lado' },
+                
+                // ETAPA 1 - TREINO B1
+                { e: 1, t: 'B1', ex: 'Coluna - Flexão e Extensão', p: '10 reps + 10 seg de cada' },
+                { e: 1, t: 'B1', ex: 'Coluna - Tilt Lateral', p: '10 reps + 10 seg cada lado' },
+                { e: 1, t: 'B1', ex: 'Coluna - Torção', p: '10 reps + 10 seg cada lado' },
+                { e: 1, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
+                { e: 1, t: 'B1', ex: 'Cócoras Buda Prayer', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 1, t: 'B1', ex: 'Cócoras Rotação', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 1, t: 'B1', ex: 'Cócoras Flexão e Extensão', p: '10 reps + 10 seg de cada' },
+                { e: 1, t: 'B1', ex: 'Cócoras Pike', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 1, t: 'B1', ex: 'Pescador Monta e Desmonta', p: '10 reps cada lado' },
+                { e: 1, t: 'B1', ex: 'Pescador Dorsiflexão', p: '10 reps + 10 seg cada lado' },
+                { e: 1, t: 'B1', ex: 'Troca de Bunda Pescador', p: '10 a 20 reps totais' },
+                { e: 1, t: 'B1', ex: 'Pescador Alto e Baixo', p: '10 reps cada lado' },
+
+                // ETAPA 1 - TREINO B2
+                { e: 1, t: 'B2', ex: 'Coluna - Flexão e Extensão', p: '10 reps + 10 seg de cada' },
+                { e: 1, t: 'B2', ex: 'Coluna - Tilt Lateral', p: '10 reps + 10 seg cada lado' },
+                { e: 1, t: 'B2', ex: 'Coluna - Torção', p: '10 reps + 10 seg cada lado' },
+                { e: 1, t: 'B2', ex: 'Trocas 90/90', p: '20 trocas totais' },
+                { e: 1, t: 'B2', ex: '90/90 Flexão de Tronco + Toque de Quadril', p: '10 reps + 10 seg de cada' },
+                { e: 1, t: 'B2', ex: '90/90 Levanta Pé', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 1, t: 'B2', ex: '90/90 Levanta Joelho', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 1, t: 'B2', ex: '90/90 Levanta Pé (outro lado)', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 1, t: 'B2', ex: '90/90 Levanta Joelho (outro lado)', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 1, t: 'B2', ex: 'Tilt Posterior e Anterior na Panqueca', p: '20 reps' },
+                { e: 1, t: 'B2', ex: 'Alcance Panqueca - Lateral', p: '10 a 15 reps + 10 a 15 seg cada lado' },
+                { e: 1, t: 'B2', ex: 'Alcance Panqueca - Frente', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 1, t: 'B2', ex: 'Alcance Panqueca - Meia Lua', p: '10 a 20 reps totais' },
+
+                // ETAPA 2 - TREINO A
+                { e: 2, t: 'A', ex: 'Coluna - Extensão/Flexão + Tilt Lateral', p: '10 reps + 5 seg cada posição' },
+                { e: 2, t: 'A', ex: 'Coluna - Extensão/Flexão + Rotação', p: '10 reps + 5 seg cada posição' },
+                { e: 2, t: 'A', ex: 'Coluna - Rotação + Tilt Lateral', p: '10 reps + 5 seg cada posição' },
+                { e: 2, t: 'A', ex: 'Panqueca Pé + Horse Stance', p: '10 a 15 reps + 10 a 15 seg cada' },
+                { e: 2, t: 'A', ex: 'Drop Stance + Cossack (um lado)', p: '10 reps cada lado' },
+                { e: 2, t: 'A', ex: 'Drop Stance + Cossack (dois lados)', p: '20 reps totais + 5 seg cada' },
+                { e: 2, t: 'A', ex: 'Diagonal + Búlgaro', p: '10 reps + 10 seg cada lado' },
+
+                // ETAPA 2 - TREINO B1
+                { e: 2, t: 'B1', ex: 'Coluna - Tilt Lateral + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
+                { e: 2, t: 'B1', ex: 'Coluna - Tilt Lateral + Rotação', p: '10 reps + 5 seg cada posição' },
+                { e: 2, t: 'B1', ex: 'Coluna - Rotação + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
+                { e: 2, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
+                { e: 2, t: 'B1', ex: 'Cócoras Empurra Joelho Unilateral', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 2, t: 'B1', ex: 'Cócoras Ativa', p: '10 reps + 10 seg' },
+                { e: 2, t: 'B1', ex: 'Trocas do Pescador + 90/90', p: '20 reps totais' },
+                { e: 2, t: 'B1', ex: 'Pescador Baixo, Alto e Ativo', p: '10 reps + 10 seg cada lado' },
+                { e: 2, t: 'B1', ex: 'Cócoras + Pescador', p: '5 a 10 reps cada lado' },
+
+                // ETAPA 2 - TREINO B2
+                { e: 2, t: 'B2', ex: 'Coluna - Tilt Lateral + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
+                { e: 2, t: 'B2', ex: 'Coluna - Tilt Lateral + Rotação', p: '10 reps + 5 seg cada posição' },
+                { e: 2, t: 'B2', ex: 'Coluna - Rotação + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
+                { e: 2, t: 'B2', ex: 'Trocas 90/90', p: '10 reps + 10 seg cada lado' },
+                { e: 2, t: 'B2', ex: 'Cócoras + 90/90', p: '10 a 20 reps totais' },
+                { e: 2, t: 'B2', ex: '90/90 + Levantar Perna Frente e Trás', p: '10 a 15 reps + 10 a 15 seg cada lado' },
+                { e: 2, t: 'B2', ex: 'Panqueca - Tilt Posterior e Anterior', p: '20 reps' },
+                { e: 2, t: 'B2', ex: '90/90 + Panqueca', p: '20 reps totais' },
+                { e: 2, t: 'B2', ex: 'Cócoras + Panqueca', p: '10 a 15 reps + 10 a 15 seg' },
+
+                // ETAPA 3 - TREINO A
+                { e: 3, t: 'A', ex: 'Círculos de Coluna', p: '10 cada sentido' },
+                { e: 3, t: 'A', ex: 'Coluna Figura 8', p: '10 cada sentido' },
+                { e: 3, t: 'A', ex: 'Coluna Livre', p: '2 a 4 minutos' },
+                { e: 3, t: 'A', ex: 'Panqueca Pé', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 3, t: 'A', ex: 'Horse Stance Circular', p: '10 reps cada sentido' },
+                { e: 3, t: 'A', ex: 'Drop Stance + Búlgaro', p: '5 reps + 10 seg cada posição' },
+                { e: 3, t: 'A', ex: 'Cossack + Diagonal', p: '10 reps + 10 seg cada lado' },
+                { e: 3, t: 'A', ex: 'Drop Stance + Cossack + Búlgaro + Diagonal (Um Lado)', p: '5 reps cada lado' },
+                { e: 3, t: 'A', ex: 'Drop Stance + Cossack + Búlgaro + Diagonal (Completo)', p: '5 reps cada lado' },
+                { e: 3, t: 'A', ex: 'Exploração Livre', p: '60 a 90 seg' },
+
+                // ETAPA 3 - TREINO B1
+                { e: 3, t: 'B1', ex: 'Círculos de Coluna', p: '10 cada lado' },
+                { e: 3, t: 'B1', ex: 'Coluna Figura 8', p: '10 cada lado' },
+                { e: 3, t: 'B1', ex: 'Coluna Livre', p: '2 a 4 minutos' },
+                { e: 3, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
+                { e: 3, t: 'B1', ex: 'Cócoras Pike', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 3, t: 'B1', ex: 'Cócoras + 90/90 + Panqueca Meia Lua', p: '10 reps totais' },
+                { e: 3, t: 'B1', ex: 'Cócoras + Panqueca + 90/90 + Pescador + Cócoras', p: '10 reps totais' },
+                { e: 3, t: 'B1', ex: 'Exploração Livre', p: '60 a 90 seg' },
+
+                // ETAPA 3 - TREINO B2
+                { e: 3, t: 'B2', ex: 'Círculos de Coluna', p: '10 cada lado' },
+                { e: 3, t: 'B2', ex: 'Coluna Figura 8', p: '10 cada lado' },
+                { e: 3, t: 'B2', ex: 'Coluna Livre', p: '2 a 4 minutos' },
+                { e: 3, t: 'B2', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
+                { e: 3, t: 'B2', ex: 'Cócoras Pike', p: '10 a 15 reps + 10 a 15 seg' },
+                { e: 3, t: 'B2', ex: 'Cócoras + Pescador + 90/90 + Panqueca + 90/90 + Pescador + Cócoras', p: '10 reps totais' },
+                { e: 3, t: 'B2', ex: 'Exploração Livre', p: '60 a 90 seg' }
+            ];
+
+            // Base de Dados de Força
+            const strengthData = [
+                // SASS
+                { c: 'SASS', b: 'Pendurada', ex: '1. Pendurada Passiva', p: 'Meta: 90s + Retr./Protr. (6 apoios)' },
+                { c: 'SASS', b: 'Pendurada', ex: '2. Pendurada Ativa', p: 'Meta: 60s + Retr./Protr. (4 apoios)' },
+                { c: 'SASS', b: 'Pendurada', ex: '3. Pendurada Passiva-Ativa', p: 'Meta: 60s + Retr./Protr. (Prancha Alta)' },
+                { c: 'SASS', b: 'Força', ex: '1. Prancha de Protração', p: '15 a 30s' },
+                { c: 'SASS', b: 'Força', ex: '2. Pendurada Arqueada', p: '5 a 8 reps (segurar 2-5s)' },
+                { c: 'SASS', b: 'Preventivo', ex: '1. Rotação Cubana', p: '2 a 3 séries de 8 a 12 reps (Cadência 4020)' },
+                
+                // BASS
+                { c: 'BASS', b: 'Pendurada', ex: 'Rotina de Pendurada', p: 'Mesma rotina do SASS (Passiva, Ativa, Passiva-Ativa)' },
+                { c: 'BASS', b: 'Força', ex: '1. Flexão', p: '3 a 8 reps (Cadência 31X1)' },
+                { c: 'BASS', b: 'Força', ex: '2. Barra Normal', p: '3 a 6 reps (Cadência 41X1)' },
+                { c: 'BASS', b: 'Força', ex: '* Barra Excêntrica', p: 'AMRAP 10-15min (10s de descida lenta)' },
+                { c: 'BASS', b: 'Finalizador', ex: '1. Isometria Baixa na Flexão', p: '30 a 60 segundos (empurrada)' },
+                { c: 'BASS', b: 'Finalizador', ex: '2. Isometria Alta na Barra', p: '10 segundos (empurrada)' }
+            ];
+
             useEffect(() => {
-                lucide.createIcons();
-            }, [isAuthenticated, activeTab]);
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, [isAuthenticated, activeTab, mobilityEtapa, mobilityTreino, strengthType]);
 
             useEffect(() => {
                 if (isAuthenticated && activeTab === 'overview' && chartRef.current) {
@@ -52,8 +194,8 @@
                         data: {
                             labels: ['Etapa 1', 'Etapa 2', 'Etapa 3'],
                             datasets: [{
-                                label: 'Volume de Exercícios',
-                                data: [9, 10, 12],
+                                label: 'Exercícios (Treino A)',
+                                data: [9, 7, 10],
                                 backgroundColor: '#d97706',
                                 borderRadius: 8
                             }]
@@ -63,8 +205,8 @@
                             maintainAspectRatio: false,
                             plugins: { legend: { display: false } },
                             scales: {
-                                y: { beginAtZero: true, grid: { display: false } },
-                                x: { grid: { display: false } }
+                                y: { beginAtZero: true, grid: { display: false }, ticks: { color: '#78716c' } },
+                                x: { grid: { display: false }, ticks: { color: '#78716c' } }
                             }
                         }
                     });
@@ -83,30 +225,32 @@
 
             if (!isAuthenticated) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center px-4">
-                        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-stone-200">
-                            <div className="flex justify-center mb-6">
-                                <div className="p-4 bg-amber-100 rounded-full">
-                                    <i data-lucide="lock" class="w-8 h-8 text-amber-600"></i>
+                    <div className="min-h-screen flex items-center justify-center px-4 bg-stone-100">
+                        <div className="max-w-md w-full bg-white p-10 rounded-3xl shadow-2xl border border-stone-200">
+                            <div className="flex justify-center mb-8">
+                                <div className="p-5 bg-amber-100 rounded-full">
+                                    <i data-lucide="lock" class="w-10 h-10 text-amber-600"></i>
                                 </div>
                             </div>
-                            <h2 className="text-2xl font-bold text-center text-stone-900 mb-2">Acesso Restrito</h2>
-                            <p className="text-stone-600 text-center mb-8">Insira a senha do protocolo para visualizar sua rotina de treinos.</p>
+                            <h2 className="text-3xl font-extrabold text-center text-stone-900 mb-2 tracking-tight">Portal de Treino</h2>
+                            <p className="text-stone-500 text-center mb-8">Introduza a sua credencial para aceder às fichas.</p>
                             
-                            <form onSubmit={handleLogin} className="space-y-4">
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Sua senha"
-                                    className="w-full px-4 py-3 rounded-xl border border-stone-200 focus:ring-2 focus:ring-amber-500 outline-none transition-all"
-                                />
-                                {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                            <form onSubmit={handleLogin} className="space-y-5">
+                                <div className="relative">
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="Senha do Protocolo"
+                                        className="w-full px-5 py-4 rounded-2xl border border-stone-300 focus:ring-4 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all text-center text-lg tracking-widest"
+                                    />
+                                </div>
+                                {error && <p className="text-red-500 text-sm text-center font-semibold">{error}</p>}
                                 <button
                                     type="submit"
-                                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 rounded-xl transition-colors shadow-md"
+                                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg active:scale-95"
                                 >
-                                    Entrar no Sistema
+                                    Desbloquear Acesso
                                 </button>
                             </form>
                         </div>
@@ -116,71 +260,183 @@
 
             return (
                 <div className="min-h-screen p-4 md:p-8">
-                    <header className="max-w-6xl mx-auto mb-10">
-                        <div className="flex items-center space-x-3 mb-2">
-                            <i data-lucide="activity" class="text-amber-600"></i>
-                            <span className="text-sm font-bold tracking-widest text-stone-500 uppercase">Protocolo Ativo</span>
+                    <header className="max-w-6xl mx-auto mb-10 flex flex-col md:flex-row md:items-end md:justify-between">
+                        <div>
+                            <div className="flex items-center space-x-3 mb-2">
+                                <i data-lucide="activity" class="text-amber-600 w-5 h-5"></i>
+                                <span className="text-xs font-black tracking-[0.2em] text-stone-400 uppercase">SISTEMA ADAPTA</span>
+                            </div>
+                            <h1 className="text-4xl md:text-5xl font-black text-stone-900 tracking-tighter">Protocolo de Performance</h1>
                         </div>
-                        <h1 className="text-4xl font-extrabold text-stone-900 tracking-tight">Dashboard de Performance</h1>
+                        <div className="mt-4 md:mt-0 text-sm font-medium text-stone-400">Versão 1.4.2</div>
                     </header>
 
-                    <nav className="max-w-6xl mx-auto flex space-x-1 bg-stone-200/50 p-1 rounded-xl mb-8">
-                        <button onClick={() => setActiveTab('overview')} className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-lg text-sm font-semibold transition-all ${activeTab === 'overview' ? 'bg-white text-amber-700 shadow-sm' : 'text-stone-500'}`}>
-                            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
-                            <span>Visão Geral</span>
-                        </button>
-                        <button onClick={() => setActiveTab('mobility')} className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-lg text-sm font-semibold transition-all ${activeTab === 'mobility' ? 'bg-white text-amber-700 shadow-sm' : 'text-stone-500'}`}>
-                            <i data-lucide="activity" class="w-4 h-4"></i>
-                            <span>Mobilidade</span>
-                        </button>
-                        <button onClick={() => setActiveTab('strength')} className={`flex-1 flex items-center justify-center space-x-2 py-3 rounded-lg text-sm font-semibold transition-all ${activeTab === 'strength' ? 'bg-white text-amber-700 shadow-sm' : 'text-stone-500'}`}>
-                            <i data-lucide="dumbbell" class="w-4 h-4"></i>
-                            <span>Força</span>
-                        </button>
+                    <nav className="max-w-6xl mx-auto flex space-x-1 bg-stone-200/50 p-1.5 rounded-2xl mb-10 shadow-inner">
+                        {[
+                            { id: 'overview', label: 'Dashboard', icon: 'layout-dashboard' },
+                            { id: 'mobility', label: 'Mobilidade', icon: 'zap' },
+                            { id: 'strength', label: 'Força', icon: 'dumbbell' }
+                        ].map((tab) => (
+                            <button 
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)} 
+                                className={`flex-1 flex items-center justify-center space-x-3 py-4 rounded-xl text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-white text-amber-700 shadow-md scale-[1.02]' : 'text-stone-500 hover:text-stone-800'}`}
+                            >
+                                <i data-lucide={tab.icon} class="w-5 h-5"></i>
+                                <span className="hidden sm:inline">{tab.label}</span>
+                            </button>
+                        ))}
                     </nav>
 
                     <main className="max-w-6xl mx-auto">
                         {activeTab === 'overview' && (
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
-                                    <h3 className="text-lg font-bold mb-6 flex items-center">
-                                        <i data-lucide="check-circle-2" class="w-5 h-5 mr-2 text-green-500"></i>
-                                        Intensidade por Etapa
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
+                                <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-stone-200 shadow-sm">
+                                    <h3 className="text-xl font-black mb-8 flex items-center text-stone-800 uppercase tracking-tight">
+                                        <i data-lucide="bar-chart-3" class="w-6 h-6 mr-3 text-amber-600"></i>
+                                        Volume por Etapa (Treino A)
                                     </h3>
                                     <div className="chart-container">
                                         <canvas ref={chartRef}></canvas>
                                     </div>
+                                    <div className="mt-8 pt-6 border-t border-stone-100">
+                                        <p className="text-stone-500 text-sm leading-relaxed">
+                                            A Etapa 3 apresenta a maior densidade de movimentos integrados, exigindo maior tempo de sessão devido à complexidade das transições.
+                                        </p>
+                                    </div>
                                 </div>
                                 
-                                <div className="bg-amber-600 text-white p-8 rounded-2xl shadow-lg flex flex-col justify-between">
-                                    <div>
-                                        <h3 className="text-2xl font-bold mb-4">Sessão Sugerida</h3>
-                                        <p className="text-amber-100 mb-6 italic">"A consistência supera a intensidade no longo prazo."</p>
-                                        <ul className="space-y-4">
-                                            <li className="flex items-start space-x-3">
-                                                <i data-lucide="arrow-right" class="w-4 h-4 mt-1"></i>
-                                                <span>Mobilidade Etapa 2 (Treino A)</span>
-                                            </li>
-                                            <li className="flex items-start space-x-3">
-                                                <i data-lucide="arrow-right" class="w-4 h-4 mt-1"></i>
-                                                <span>Força SASS (Braço Esticado)</span>
-                                            </li>
-                                        </ul>
+                                <div className="space-y-6">
+                                    <div className="bg-amber-600 text-white p-8 rounded-3xl shadow-xl">
+                                        <h3 className="text-2xl font-black mb-4 tracking-tight">Foco Hoje</h3>
+                                        <p className="text-amber-100 mb-8 italic text-lg leading-snug">"A qualidade do movimento dita a velocidade da progressão."</p>
+                                        <div className="space-y-4">
+                                            <div className="flex items-center p-3 bg-amber-500/30 rounded-xl border border-white/10">
+                                                <i data-lucide="check-circle" class="w-5 h-5 mr-3"></i>
+                                                <span className="font-bold">Mobilidade Etapa {mobilityEtapa}</span>
+                                            </div>
+                                            <div className="flex items-center p-3 bg-amber-500/30 rounded-xl border border-white/10">
+                                                <i data-lucide="check-circle" class="w-5 h-5 mr-3"></i>
+                                                <span className="font-bold">Força {strengthType}</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <button className="mt-8 bg-white text-amber-700 font-bold py-3 px-6 rounded-xl text-center hover:bg-stone-50 transition-colors">
-                                        Iniciar Treino Hoje
-                                    </button>
+                                    
+                                    <div className="bg-stone-900 text-white p-6 rounded-3xl shadow-sm">
+                                        <h4 className="text-xs font-black text-stone-500 uppercase tracking-[0.2em] mb-4">Acesso Rápido</h4>
+                                        <button onClick={() => setActiveTab('mobility')} className="w-full flex items-center justify-between p-4 bg-stone-800 rounded-2xl hover:bg-stone-700 transition-colors mb-3">
+                                            <span className="font-bold">Ver Treino Atual</span>
+                                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         )}
 
-                        {activeTab !== 'overview' && (
-                            <div className="bg-white p-8 rounded-2xl border border-stone-200 text-center">
-                                <h3 className="text-xl font-bold mb-4 text-stone-900">Módulo de {activeTab === 'mobility' ? 'Mobilidade' : 'Força'}</h3>
-                                <p className="text-stone-600">Acesse as rotinas específicas para o seu nível de condicionamento.</p>
+                        {activeTab === 'mobility' && (
+                            <div className="animate-in slide-in-from-bottom-4 duration-500">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Selecione o Nível</span>
+                                        <div className="flex bg-stone-200/50 p-1.5 rounded-2xl w-fit border border-stone-200 shadow-inner">
+                                            {[1, 2, 3].map(e => (
+                                                <button key={e} onClick={() => setMobilityEtapa(e)} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${mobilityEtapa === e ? 'bg-amber-600 text-white shadow-lg' : 'text-stone-500 hover:text-stone-800'}`}>
+                                                    ETAPA {e}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Variante Diária</span>
+                                        <div className="flex bg-stone-200/50 p-1.5 rounded-2xl w-fit border border-stone-200 shadow-inner">
+                                            {['A', 'B1', 'B2'].map(t => (
+                                                <button key={t} onClick={() => setMobilityTreino(t)} className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${mobilityTreino === t ? 'bg-amber-600 text-white shadow-lg' : 'text-stone-500 hover:text-stone-800'}`}>
+                                                    TREINO {t}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {mobilityData.filter(d => d.e === mobilityEtapa && d.t === mobilityTreino).length > 0 ? (
+                                        mobilityData.filter(d => d.e === mobilityEtapa && d.t === mobilityTreino).map((item, idx) => (
+                                            <div key={idx} className="bg-white border-b-4 border-amber-600 p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all group active:scale-95">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] bg-amber-50 px-3 py-1 rounded-full">Ordem {idx + 1}</div>
+                                                    <i data-lucide="maximize-2" class="w-4 h-4 text-stone-300 group-hover:text-amber-500 transition-colors"></i>
+                                                </div>
+                                                <h4 className="text-xl font-black text-stone-800 mb-6 leading-tight min-h-[3rem]">{item.ex}</h4>
+                                                <div className="space-y-4">
+                                                    <div className="bg-stone-50 p-4 rounded-2xl text-sm text-stone-600 border border-stone-100 flex items-center shadow-inner">
+                                                        <i data-lucide="clock-3" class="w-5 h-5 mr-3 text-amber-600"></i>
+                                                        <span className="font-semibold">{item.p}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="col-span-full py-32 text-center bg-white rounded-3xl border border-dashed border-stone-300">
+                                            <i data-lucide="search-x" class="w-16 h-16 mx-auto mb-6 text-stone-200"></i>
+                                            <p className="text-stone-400 font-bold">Nenhum treino encontrado nesta combinação.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'strength' && (
+                            <div className="animate-in zoom-in-95 duration-500">
+                                <div className="flex flex-col gap-2 mb-10">
+                                    <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Protocolo de Força</span>
+                                    <div className="flex bg-stone-200/50 p-1.5 rounded-2xl w-fit border border-stone-200 shadow-inner">
+                                        {['SASS', 'BASS'].map(type => (
+                                            <button key={type} onClick={() => setStrengthType(type)} className={`px-8 py-4 rounded-xl text-xs font-black transition-all ${strengthType === type ? 'bg-amber-600 text-white shadow-xl' : 'text-stone-500'}`}>
+                                                {type === 'SASS' ? 'BRAÇO ESTICADO' : 'BRAÇO DOBRADO'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-12">
+                                    {['Pendurada', 'Força', 'Preventivo', 'Finalizador'].map(bloco => {
+                                        const exercises = strengthData.filter(d => d.c === strengthType && d.b === bloco);
+                                        if (exercises.length === 0) return null;
+                                        return (
+                                            <div key={bloco} className="relative">
+                                                <div className="flex items-center mb-8">
+                                                    <h3 className="text-2xl font-black text-stone-900 uppercase tracking-tighter mr-6">Bloco: {bloco}</h3>
+                                                    <div className="h-px flex-1 bg-stone-200"></div>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    {exercises.map((ex, idx) => (
+                                                        <div key={idx} className="bg-white p-8 rounded-3xl border border-stone-200 shadow-sm flex flex-col md:flex-row md:items-center gap-6">
+                                                            <div className="flex-1">
+                                                                <h4 className="text-lg font-black text-stone-800 mb-2">{ex.ex}</h4>
+                                                                <p className="text-stone-500 font-medium leading-relaxed">{ex.p}</p>
+                                                            </div>
+                                                            <div className="p-4 bg-stone-50 rounded-2xl border border-stone-100 flex items-center justify-center">
+                                                                <i data-lucide="play-circle" class="w-8 h-8 text-amber-600 opacity-20 group-hover:opacity-100 transition-opacity"></i>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
                     </main>
+                    
+                    <footer className="max-w-6xl mx-auto mt-20 pt-10 border-t border-stone-200 pb-10 text-center">
+                        <div className="flex justify-center space-x-6 mb-6 grayscale opacity-30">
+                            <i data-lucide="shield-check" class="w-6 h-6"></i>
+                            <i data-lucide="target" class="w-6 h-6"></i>
+                            <i data-lucide="flame" class="w-6 h-6"></i>
+                        </div>
+                        <p className="text-xs font-black text-stone-400 uppercase tracking-[0.3em]">&copy; 2026 Protocolo Adapta Dinâmica</p>
+                    </footer>
                 </div>
             );
         };
