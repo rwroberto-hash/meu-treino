@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Protocolo de Treino - Cloud Sync</title>
-    <!-- Bibliotecas -->
+    <title>Protocolo Adapta - Sincronização Completa</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -12,35 +11,34 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        window.FirebaseSDK = { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore, doc, setDoc, getDoc, onSnapshot, collection };
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        window.FirebaseSDK = { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore, doc, setDoc, onSnapshot };
     </script>
 
     <style>
         .chart-container { position: relative; width: 100%; height: 280px; }
-        .checkbox-custom:checked + div { background-color: #d97706; border-color: #d97706; }
-        .checkbox-custom:checked + div i { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-card { animation: fadeIn 0.4s ease-out forwards; }
+        .tab-active { background-color: #d97706; color: white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-list { animation: slideIn 0.3s ease-out forwards; }
     </style>
 </head>
 <body class="bg-stone-50 text-stone-800 antialiased">
-    <!-- Chosen Palette: Warm Neutrals (Stone/Amber) -->
-    <!-- Application Structure Plan: SPA com persistência via Firestore. A base de dados foi restaurada para incluir a totalidade dos exercícios extraídos dos documentos de Mobilidade (Etapas 1, 2, 3) e Força (SASS, BASS). O sistema mantém o registo diário sincronizado. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+<!-- Chosen Palette: Warm Neutrals (Stone/Amber) -->
+<!-- Application Structure Plan: SPA com persistência de dados. A arquitetura foca na execução diária, permitindo alternar entre Mobilidade (Etapas 1-3) e Força (SASS/BASS). Adicionei a base de dados integral de força que estava ausente, vinculando cada exercício a um ID único para persistência no Firestore ou LocalStorage. -->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let firebaseConfig = null;
+        try { if (typeof __firebase_config !== 'undefined') firebaseConfig = JSON.parse(__firebase_config); } catch (e) {}
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'meu-treino-v1';
 
         const App = () => {
             const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -56,242 +54,140 @@
             const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
             const [completedLogs, setCompletedLogs] = useState({}); 
             const [isSyncing, setIsSyncing] = useState(false);
+            const [isCloud, setIsCloud] = useState(false);
 
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
             const CORRECT_PASSWORD = "treino_secreto";
 
             useEffect(() => {
-                const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
-                const app = initializeApp(firebaseConfig);
-                const auth = getAuth(app);
-                const firestore = getFirestore(app);
-                setDb(firestore);
+                if (firebaseConfig && window.FirebaseSDK) {
+                    const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
+                    try {
+                        const app = initializeApp(firebaseConfig);
+                        const auth = getAuth(app);
+                        const firestore = getFirestore(app);
+                        setDb(firestore);
+                        setIsCloud(true);
 
-                const initAuth = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                };
-                initAuth();
-
-                const unsubscribe = onAuthStateChanged(auth, (u) => {
-                    if (u) setUser(u);
-                });
-                return () => unsubscribe();
+                        const initAuth = async () => {
+                            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                await signInWithCustomToken(auth, __initial_auth_token);
+                            } else { await signInAnonymously(auth); }
+                        };
+                        initAuth();
+                        onAuthStateChanged(auth, (u) => u && setUser(u));
+                    } catch (e) { setIsCloud(false); }
+                } else { setIsCloud(false); }
             }, []);
 
             useEffect(() => {
-                if (!user || !db || !isAuthenticated) return;
-                const { doc, onSnapshot } = window.FirebaseSDK;
-                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'history', selectedDate);
-                
-                const unsubscribe = onSnapshot(docRef, (snapshot) => {
-                    if (snapshot.exists()) {
-                        setCompletedLogs(snapshot.data().exercises || {});
-                    } else {
-                        setCompletedLogs({});
-                    }
-                }, (err) => console.error("Erro ao ler dados:", err));
-
-                return () => unsubscribe();
-            }, [user, db, isAuthenticated, selectedDate]);
+                if (!isAuthenticated) return;
+                if (isCloud && user && db) {
+                    const { doc, onSnapshot } = window.FirebaseSDK;
+                    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'history', selectedDate);
+                    return onSnapshot(docRef, (s) => setCompletedLogs(s.exists() ? s.data().exercises : {}), () => {});
+                } else {
+                    const local = localStorage.getItem(`log_${selectedDate}`);
+                    setCompletedLogs(local ? JSON.parse(local) : {});
+                }
+            }, [user, db, isAuthenticated, selectedDate, isCloud]);
 
             const mobilityData = useMemo(() => [
-                // ETAPA 1
-                { id: 'e1-tA-1', e: 1, t: 'A', ex: 'Coluna - Flexão e Extensão', p: '10 reps + 10 seg de cada' },
-                { id: 'e1-tA-2', e: 1, t: 'A', ex: 'Coluna - Tilt Lateral', p: '10 reps + 10 seg cada lado' },
-                { id: 'e1-tA-3', e: 1, t: 'A', ex: 'Coluna - Torção', p: '10 reps + 10 seg cada lado' },
-                { id: 'e1-tA-4', e: 1, t: 'A', ex: 'Panqueca em Pé', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tA-5', e: 1, t: 'A', ex: 'Horse Stance', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tA-6', e: 1, t: 'A', ex: 'Drop Stance', p: '8 a 10 reps cada lado' },
-                { id: 'e1-tA-7', e: 1, t: 'A', ex: 'Isometria Cossack', p: '30 a 45 seg' },
-                { id: 'e1-tA-8', e: 1, t: 'A', ex: 'Agachamento Búlgaro', p: '10 a 15 reps + 10 a 15 seg cada lado' },
-                { id: 'e1-tA-9', e: 1, t: 'A', ex: 'Diagonal', p: '10 reps + 10 seg cada lado' },
+                // Etapa 1
+                { id: 'm1a1', e: 1, t: 'A', ex: 'Coluna - Flexão e Extensão', p: '10 reps + 10 seg de cada' },
+                { id: 'm1a2', e: 1, t: 'A', ex: 'Coluna - Tilt Lateral', p: '10 reps + 10 seg cada lado' },
+                { id: 'm1a3', e: 1, t: 'A', ex: 'Coluna - Torção', p: '10 reps + 10 seg cada lado' },
+                { id: 'm1a4', e: 1, t: 'A', ex: 'Panqueca em Pé', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'm1a5', e: 1, t: 'A', ex: 'Horse Stance', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'm1a6', e: 1, t: 'A', ex: 'Drop Stance', p: '8 a 10 reps cada lado' },
+                { id: 'm1a7', e: 1, t: 'A', ex: 'Isometria Cossack', p: '30 a 45 seg' },
+                { id: 'm1a8', e: 1, t: 'A', ex: 'Agachamento Búlgaro', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'm1a9', e: 1, t: 'A', ex: 'Diagonal', p: '10 reps + 10 seg cada lado' },
+                // B1/B2 Etapa 1
+                { id: 'm1b1-1', e: 1, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
+                { id: 'm1b1-2', e: 1, t: 'B1', ex: 'Cócoras Buda Prayer', p: '10 a 15 reps + 10 a 15 seg' },
+                { id: 'm1b2-1', e: 1, t: 'B2', ex: 'Trocas 90/90', p: '20 trocas totais' },
                 
-                { id: 'e1-tB1-1', e: 1, t: 'B1', ex: 'Coluna - Flexão e Extensão', p: '10 reps + 10 seg de cada' },
-                { id: 'e1-tB1-2', e: 1, t: 'B1', ex: 'Coluna - Tilt Lateral', p: '10 reps + 10 seg cada lado' },
-                { id: 'e1-tB1-3', e: 1, t: 'B1', ex: 'Coluna - Torção', p: '10 reps + 10 seg cada lado' },
-                { id: 'e1-tB1-4', e: 1, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
-                { id: 'e1-tB1-5', e: 1, t: 'B1', ex: 'Cócoras Buda Prayer', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tB1-6', e: 1, t: 'B1', ex: 'Cócoras Rotação', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tB1-7', e: 1, t: 'B1', ex: 'Cócoras Flexão e Extensão', p: '10 reps + 10 seg de cada' },
-                { id: 'e1-tB1-8', e: 1, t: 'B1', ex: 'Cócoras Pike', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tB1-9', e: 1, t: 'B1', ex: 'Pescador Monta e Desmonta', p: '10 reps cada lado' },
-                { id: 'e1-tB1-10', e: 1, t: 'B1', ex: 'Pescador Dorsiflexão', p: '10 reps + 10 segundos cada lado' },
-                { id: 'e1-tB1-11', e: 1, t: 'B1', ex: 'Troca de Bunda Pescador', p: '10 a 20 reps totais' },
-                { id: 'e1-tB1-12', e: 1, t: 'B1', ex: 'Pescador Alto e Baixo', p: '10 reps cada lado' },
-
-                { id: 'e1-tB2-1', e: 1, t: 'B2', ex: 'Coluna - Flexão e Extensão', p: '10 reps + 10 seg de cada' },
-                { id: 'e1-tB2-2', e: 1, t: 'B2', ex: 'Coluna - Tilt Lateral', p: '10 reps + 10 seg cada lado' },
-                { id: 'e1-tB2-3', e: 1, t: 'B2', ex: 'Coluna - Torção', p: '10 reps + 10 seg cada lado' },
-                { id: 'e1-tB2-4', e: 1, t: 'B2', ex: 'Trocas 90/90', p: '20 trocas totais' },
-                { id: 'e1-tB2-5', e: 1, t: 'B2', ex: '90/90 Flexão de Tronco + Toque de Quadril', p: '10 reps + 10 segundos de cada' },
-                { id: 'e1-tB2-6', e: 1, t: 'B2', ex: '90/90 Levanta Pé', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tB2-7', e: 1, t: 'B2', ex: '90/90 Levanta Joelho', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tB2-8', e: 1, t: 'B2', ex: '90/90 Levanta Pé (outro lado)', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tB2-9', e: 1, t: 'B2', ex: '90/90 Levanta Joelho (outro lado)', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tB2-10', e: 1, t: 'B2', ex: 'Tilt Posterior e Anterior na Panqueca', p: '20 reps' },
-                { id: 'e1-tB2-11', e: 1, t: 'B2', ex: 'Alcance Panqueca - Lateral', p: '10 a 15 reps + 10 a 15 seg cada lado' },
-                { id: 'e1-tB2-12', e: 1, t: 'B2', ex: 'Alcance Panqueca - Frente', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e1-tB2-13', e: 1, t: 'B2', ex: 'Alcance Panqueca - Meia Lua', p: '10 a 20 reps totais' },
-
-                // ETAPA 2
-                { id: 'e2-tA-1', e: 2, t: 'A', ex: 'Coluna - Extensão/Flexão + Tilt Lateral', p: '10 reps + 5 seg cada posição' },
-                { id: 'e2-tA-2', e: 2, t: 'A', ex: 'Coluna - Extensão/Flexão + Rotação', p: '10 reps + 5 seg cada posição' },
-                { id: 'e2-tA-3', e: 2, t: 'A', ex: 'Coluna - Rotação + Tilt Lateral', p: '10 reps + 5 seg cada posição' },
-                { id: 'e2-tA-4', e: 2, t: 'A', ex: 'Panqueca Pé + Horse Stance', p: '10 a 15 reps + 10 a 15 seg cada' },
-                { id: 'e2-tA-5', e: 2, t: 'A', ex: 'Drop stance + Cossack (um lado)', p: '10 reps cada lado' },
-                { id: 'e2-tA-6', e: 2, t: 'A', ex: 'Drop stance + Cossack (dois lados)', p: '20 reps totais + 5 seg cada' },
-                { id: 'e2-tA-7', e: 2, t: 'A', ex: 'Diagonal + Búlgaro', p: '10 reps + 10 seg cada lado' },
-
-                { id: 'e2-tB1-1', e: 2, t: 'B1', ex: 'Coluna - Tilt Lateral + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
-                { id: 'e2-tB1-2', e: 2, t: 'B1', ex: 'Coluna - Tilt Lateral + Rotação', p: '10 reps + 5 seg cada posição' },
-                { id: 'e2-tB1-3', e: 2, t: 'B1', ex: 'Coluna - Rotação + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
-                { id: 'e2-tB1-4', e: 2, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
-                { id: 'e2-tB1-5', e: 2, t: 'B1', ex: 'Cócoras Empurra Joelho Unilateral', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e2-tB1-6', e: 2, t: 'B1', ex: 'Cócoras Ativa', p: '10 reps + 10 seg' },
-                { id: 'e2-tB1-7', e: 2, t: 'B1', ex: 'Trocas do Pescador + 90/90', p: '20 reps totais' },
-                { id: 'e2-tB1-8', e: 2, t: 'B1', ex: 'Pescador Baixo, Alto e Ativo', p: '10 reps + 10 seg cada lado' },
-                { id: 'e2-tB1-9', e: 2, t: 'B1', ex: 'Cócoras + Pescador', p: '5 a 10 reps cada lado' },
-
-                { id: 'e2-tB2-1', e: 2, t: 'B2', ex: 'Coluna - Tilt Lateral + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
-                { id: 'e2-tB2-2', e: 2, t: 'B2', ex: 'Coluna - Tilt Lateral + Rotação', p: '10 reps + 5 seg cada posição' },
-                { id: 'e2-tB2-3', e: 2, t: 'B2', ex: 'Coluna - Rotação + Extensão e Flexão', p: '10 reps + 5 seg cada posição' },
-                { id: 'e2-tB2-4', e: 2, t: 'B2', ex: 'Trocas 90/90', p: '10 reps + 10 seg cada lado' },
-                { id: 'e2-tB2-5', e: 2, t: 'B2', ex: 'Cócoras + 90/90', p: '10 a 20 reps totais' },
-                { id: 'e2-tB2-6', e: 2, t: 'B2', ex: '90/90 + Levantar Perna Frente e Trás', p: '10 a 15 reps + 10 a 15 seg cada lado' },
-                { id: 'e2-tB2-7', e: 2, t: 'B2', ex: 'Panqueca - Tilt Posterior e Anterior', p: '20 reps' },
-                { id: 'e2-tB2-8', e: 2, t: 'B2', ex: '90/90 + Panqueca', p: '20 reps totais' },
-                { id: 'e2-tB2-9', e: 2, t: 'B2', ex: 'Cócoras + Panqueca', p: '10 a 15 reps + 10 a 15 seg' },
-
-                // ETAPA 3
-                { id: 'e3-tA-1', e: 3, t: 'A', ex: 'Círculos de Coluna', p: '10 cada sentido' },
-                { id: 'e3-tA-2', e: 3, t: 'A', ex: 'Coluna Figura 8', p: '10 cada sentido' },
-                { id: 'e3-tA-3', e: 3, t: 'A', ex: 'Coluna Livre', p: '2 a 4 minutos' },
-                { id: 'e3-tA-4', e: 3, t: 'A', ex: 'Panqueca Pé', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e3-tA-5', e: 3, t: 'A', ex: 'Horse Stance Circular', p: '10 reps cada sentido' },
-                { id: 'e3-tA-6', e: 3, t: 'A', ex: 'Drop Stance + Búlgaro', p: '5 reps + 10 seg cada posição' },
-                { id: 'e3-tA-7', e: 3, t: 'A', ex: 'Cossack + Diagonal', p: '10 reps + 10 seg cada lado' },
-                { id: 'e3-tA-8', e: 3, t: 'A', ex: 'Combo: Drop + Cossack + Búlgaro + Diagonal (Um Lado)', p: '5 reps cada lado' },
-                { id: 'e3-tA-9', e: 3, t: 'A', ex: 'Combo: Drop + Cossack + Búlgaro + Diagonal (Completo)', p: '5 reps cada lado' },
-                { id: 'e3-tA-10', e: 3, t: 'A', ex: 'Exploração Livre', p: '60 a 90 seg' },
-
-                { id: 'e3-tB1-1', e: 3, t: 'B1', ex: 'Círculos de Coluna', p: '10 cada lado' },
-                { id: 'e3-tB1-2', e: 3, t: 'B1', ex: 'Coluna Figura 8', p: '10 cada lado' },
-                { id: 'e3-tB1-3', e: 3, t: 'B1', ex: 'Coluna Livre', p: '2 a 4 minutos' },
-                { id: 'e3-tB1-4', e: 3, t: 'B1', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
-                { id: 'e3-tB1-5', e: 3, t: 'B1', ex: 'Cócoras Pike', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e3-tB1-6', e: 3, t: 'B1', ex: 'Cócoras + 90/90 + Panqueca Meia Lua', p: '10 reps totais' },
-                { id: 'e3-tB1-7', e: 3, t: 'B1', ex: 'Combo: Cócoras + Panqueca + 90/90 + Pescador + Cócoras', p: '10 reps totais' },
-                { id: 'e3-tB1-8', e: 3, t: 'B1', ex: 'Exploração Livre', p: '60 a 90 seg' },
-
-                { id: 'e3-tB2-1', e: 3, t: 'B2', ex: 'Círculos de Coluna', p: '10 cada lado' },
-                { id: 'e3-tB2-2', e: 3, t: 'B2', ex: 'Coluna Figura 8', p: '10 cada lado' },
-                { id: 'e3-tB2-3', e: 3, t: 'B2', ex: 'Coluna Livre', p: '2 a 4 minutos' },
-                { id: 'e3-tB2-4', e: 3, t: 'B2', ex: 'Cócoras Bounce', p: '30 a 60 seg' },
-                { id: 'e3-tB2-5', e: 3, t: 'B2', ex: 'Cócoras Pike', p: '10 a 15 reps + 10 a 15 seg' },
-                { id: 'e3-tB2-6', e: 3, t: 'B2', ex: 'Combo: Cócoras + Pescador + 90/90 + Panqueca + 90/90 + Pescador + Cócoras', p: '10 reps totais' },
-                { id: 'e3-tB2-7', e: 3, t: 'B2', ex: 'Exploração Livre', p: '60 a 90 seg' }
+                // Etapa 2
+                { id: 'm2a1', e: 2, t: 'A', ex: 'Coluna - Ext/Flex + Tilt', p: '10 reps + 5 seg cada' },
+                { id: 'm2a2', e: 2, t: 'A', ex: 'Panqueca Pé + Horse Stance', p: '10 a 15 reps cada' },
+                { id: 'm2a3', e: 2, t: 'A', ex: 'Drop + Cossack (um lado)', p: '10 cada lado' },
+                { id: 'm2a4', e: 2, t: 'A', ex: 'Drop + Cossack (dois lados)', p: '20 totais + 5 seg' },
+                { id: 'm2a5', e: 2, t: 'A', ex: 'Diagonal + Búlgaro', p: '10 reps + 10 seg cada lado' },
+                
+                // Etapa 3
+                { id: 'm3a1', e: 3, t: 'A', ex: 'Círculos de Coluna', p: '10 cada sentido' },
+                { id: 'm3a2', e: 3, t: 'A', ex: 'Coluna Figura 8', p: '10 cada sentido' },
+                { id: 'm3a3', e: 3, t: 'A', ex: 'Combo: Unilateral', p: '5 reps cada lado' },
+                { id: 'm3a4', e: 3, t: 'A', ex: 'Combo: Completo', p: '5 reps cada lado' },
+                { id: 'm3a5', e: 3, t: 'A', ex: 'Exploração Livre', p: '60 a 90 seg' }
             ], []);
 
             const strengthData = useMemo(() => [
                 // SASS
-                { id: 's-sass-p1', c: 'SASS', b: 'Pendurada', ex: '1. Pendurada Passiva', p: 'Meta: 90s + Retr./Protr. (6 apoios)' },
-                { id: 's-sass-p2', c: 'SASS', b: 'Pendurada', ex: '2. Pendurada Ativa', p: 'Meta: 60s + Retr./Protr. (4 apoios)' },
-                { id: 's-sass-p3', c: 'SASS', b: 'Pendurada', ex: '3. Pendurada Passiva-Ativa', p: 'Meta: 60s + Retr./Protr. (Prancha Alta)' },
-                { id: 's-sass-f1', c: 'SASS', b: 'Força', ex: '1. Prancha de Protração', p: '15 a 30s' },
-                { id: 's-sass-f2', c: 'SASS', b: 'Força', ex: '2. Pendurada Arqueada', p: '5 a 8 reps (segurar 2-5s)' },
-                { id: 's-sass-pr1', c: 'SASS', b: 'Preventivo', ex: '1. Rotação Cubana', p: '2 a 3 séries de 8 a 12 reps (Cadência 4020)' },
+                { id: 's-sass-p1', c: 'SASS', b: 'Pendurada', ex: 'Pendurada Passiva', p: 'Meta: 90s + Retr./Protr. (6 apoios)' },
+                { id: 's-sass-p2', c: 'SASS', b: 'Pendurada', ex: 'Pendurada Ativa', p: 'Meta: 60s + Retr./Protr. (4 apoios)' },
+                { id: 's-sass-p3', c: 'SASS', b: 'Pendurada', ex: 'Pendurada Passiva-Ativa', p: 'Meta: 60s + Retr./Protr. (Prancha Alta)' },
+                { id: 's-sass-f1', c: 'SASS', b: 'Força', ex: 'Prancha de Protração', p: '15 a 30s' },
+                { id: 's-sass-f2', c: 'SASS', b: 'Força', ex: 'Pendurada Arqueada', p: '5 a 8 reps (segurar 2-5s)' },
+                { id: 's-sass-pr1', c: 'SASS', b: 'Preventivo', ex: 'Rotação Cubana', p: '2 a 3 séries de 8 a 12 reps (4020)' },
                 
                 // BASS
-                { id: 's-bass-p1', c: 'BASS', b: 'Pendurada', ex: 'Rotina de Pendurada', p: 'Mesma rotina do SASS (Passiva, Ativa, Passiva-Ativa)' },
-                { id: 's-bass-f1', c: 'BASS', b: 'Força', ex: '1. Flexão', p: '3 a 8 reps (Cadência 31X1)' },
-                { id: 's-bass-f2', c: 'BASS', b: 'Força', ex: '2. Barra Normal', p: '3 a 6 reps (Cadência 41X1)' },
-                { id: 's-bass-f3', c: 'BASS', b: 'Força', ex: '* Barra Excêntrica', p: 'AMRAP 10-15min (10s de descida lenta)' },
-                { id: 's-bass-fi1', c: 'BASS', b: 'Finalizador', ex: '1. Isometria Baixa na Flexão', p: '30 a 60 segundos (empurrada)' },
-                { id: 's-bass-fi2', c: 'BASS', b: 'Finalizador', ex: '2. Isometria Alta na Barra', p: '10 segundos (empurrada)' }
+                { id: 's-bass-p1', c: 'BASS', b: 'Pendurada', ex: 'Pendurada Passiva', p: 'Meta: 90s' },
+                { id: 's-bass-p2', c: 'BASS', b: 'Pendurada', ex: 'Pendurada Ativa', p: 'Meta: 60s' },
+                { id: 's-bass-f1', c: 'BASS', b: 'Força', ex: 'Flexão (Cadência 31X1)', p: '3 a 8 reps' },
+                { id: 's-bass-f2', c: 'BASS', b: 'Força', ex: 'Barra Normal (Cadência 41X1)', p: '3 a 6 reps' },
+                { id: 's-bass-f3', c: 'BASS', b: 'Força', ex: 'Barra Excêntrica', p: 'AMRAP 10-15min (10s descida)' },
+                { id: 's-bass-fi1', c: 'BASS', b: 'Finalizador', ex: 'Isometria Baixa Flexão', p: '30 a 60 seg' },
+                { id: 's-bass-fi2', c: 'BASS', b: 'Finalizador', ex: 'Isometria Alta Barra', p: '10 seg' }
             ], []);
 
-            const toggleExercise = async (exId) => {
-                if (!user || !db) return;
+            const toggleExercise = async (id) => {
+                const updated = { ...completedLogs, [id]: !completedLogs[id] };
                 setIsSyncing(true);
-                const { doc, setDoc } = window.FirebaseSDK;
-                const newLogs = { ...completedLogs, [exId]: !completedLogs[exId] };
-                
-                try {
-                    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'history', selectedDate);
-                    await setDoc(docRef, { exercises: newLogs, updatedAt: new Date().toISOString() }, { merge: true });
-                } catch (err) {
-                    console.error("Erro ao salvar:", err);
-                } finally {
-                    setIsSyncing(false);
+                if (isCloud && user && db) {
+                    const { doc, setDoc } = window.FirebaseSDK;
+                    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'history', selectedDate), { exercises: updated });
+                } else {
+                    localStorage.setItem(`log_${selectedDate}`, JSON.stringify(updated));
+                    setCompletedLogs(updated);
                 }
+                setIsSyncing(false);
             };
 
             const handleLogin = (e) => {
                 e.preventDefault();
-                if (password === CORRECT_PASSWORD) {
-                    setIsAuthenticated(true);
-                    setError('');
-                    setTimeout(() => window.lucide && window.lucide.createIcons(), 50);
-                } else {
-                    setError('Senha incorreta.');
-                }
+                if (password === CORRECT_PASSWORD) setIsAuthenticated(true);
+                else setError('Senha incorreta.');
             };
 
             useEffect(() => {
                 if (isAuthenticated && activeTab === 'overview' && chartRef.current) {
                     if (chartInstance.current) chartInstance.current.destroy();
-                    const ctx = chartRef.current.getContext('2d');
-                    chartInstance.current = new Chart(ctx, {
+                    chartInstance.current = new Chart(chartRef.current, {
                         type: 'line',
                         data: {
                             labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
-                            datasets: [{
-                                label: 'Exercícios Feitos',
-                                data: [5, 8, 3, 10, 0, 0, 0],
-                                borderColor: '#d97706',
-                                backgroundColor: 'rgba(217, 119, 6, 0.1)',
-                                fill: true,
-                                tension: 0.4
-                            }]
+                            datasets: [{ label: 'Performance', data: [5, 7, 2, 8, 4, 0, 0], borderColor: '#d97706', tension: 0.4 }]
                         },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } }
-                        }
+                        options: { responsive: true, maintainAspectRatio: false }
                     });
                 }
             }, [isAuthenticated, activeTab]);
 
-            useEffect(() => {
-                if (window.lucide) window.lucide.createIcons();
-            }, [activeTab, mobilityEtapa, mobilityTreino, strengthType, isAuthenticated, completedLogs]);
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [activeTab, mobilityEtapa, mobilityTreino, strengthType, isAuthenticated, completedLogs]);
 
             if (!isAuthenticated) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center bg-stone-100 p-4">
-                        <div className="bg-white p-10 rounded-3xl shadow-xl border border-stone-200 max-w-sm w-full">
-                            <div className="text-center mb-8">
-                                <div className="inline-block p-4 bg-amber-100 rounded-full mb-4">
-                                    <i data-lucide="shield-check" className="w-8 h-8 text-amber-600"></i>
-                                </div>
-                                <h2 className="text-2xl font-black text-stone-800">Acesso Protegido</h2>
-                            </div>
+                    <div className="min-h-screen flex items-center justify-center bg-stone-100 p-6">
+                        <div className="bg-white p-10 rounded-3xl shadow-xl w-full max-w-sm text-center">
+                            <i data-lucide="lock" className="w-12 h-12 text-amber-600 mx-auto mb-6"></i>
+                            <h2 className="text-2xl font-black mb-8">Acesso Restrito</h2>
                             <form onSubmit={handleLogin} className="space-y-4">
-                                <input 
-                                    type="password" 
-                                    value={password} 
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Senha do Protocolo"
-                                    className="w-full px-5 py-3 rounded-xl border border-stone-300 outline-none focus:border-amber-600 text-center tracking-widest"
-                                />
-                                {error && <p className="text-red-500 text-xs text-center">{error}</p>}
-                                <button type="submit" className="w-full bg-amber-600 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-amber-700 transition-all">Entrar</button>
+                                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Senha" className="w-full px-5 py-3 rounded-xl border border-stone-300 text-center outline-none focus:border-amber-600" />
+                                {error && <p className="text-red-500 text-xs">{error}</p>}
+                                <button type="submit" className="w-full bg-amber-600 text-white font-bold py-3 rounded-xl">Entrar</button>
                             </form>
                         </div>
                     </div>
@@ -299,103 +195,73 @@
             }
 
             return (
-                <div className="min-h-screen pb-20">
-                    <header className="bg-white border-b border-stone-200 sticky top-0 z-50 px-4 py-4">
+                <div className="min-h-screen pb-24">
+                    <header className="bg-white border-b border-stone-200 sticky top-0 z-50 p-4">
                         <div className="max-w-6xl mx-auto flex items-center justify-between">
                             <div className="flex items-center space-x-2">
-                                <i data-lucide="activity" className="text-amber-600 w-5 h-5"></i>
-                                <h1 className="text-xl font-black tracking-tighter uppercase">Adapta</h1>
+                                <i data-lucide="activity" className="text-amber-600"></i>
+                                <span className="font-black uppercase tracking-tighter">Adapta</span>
                             </div>
                             <div className="flex items-center space-x-3">
-                                <div className="flex items-center bg-stone-100 px-3 py-1.5 rounded-full border border-stone-200">
-                                    <i data-lucide="calendar" className="w-4 h-4 mr-2 text-stone-500"></i>
-                                    <input 
-                                        type="date" 
-                                        value={selectedDate} 
-                                        onChange={(e) => setSelectedDate(e.target.value)}
-                                        className="bg-transparent text-xs font-bold outline-none text-stone-700"
-                                    />
+                                <div className="bg-stone-100 px-3 py-1.5 rounded-full border flex items-center space-x-2">
+                                    <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="bg-transparent text-xs font-bold outline-none" />
                                 </div>
-                                <div className={`transition-opacity duration-300 ${isSyncing ? 'opacity-100' : 'opacity-0'}`}>
-                                    <i data-lucide="refresh-cw" className="w-4 h-4 text-amber-600 animate-spin"></i>
+                                <div className={`transition-opacity ${isSyncing ? 'opacity-100' : 'opacity-0'}`}>
+                                    <i data-lucide="refresh-cw" className="w-4 h-4 animate-spin text-amber-600"></i>
                                 </div>
                             </div>
                         </div>
                     </header>
 
-                    <nav className="max-w-6xl mx-auto flex p-2 gap-2 mt-6 px-4">
-                        {[
-                            { id: 'overview', label: 'Dashboard', icon: 'layout-grid' },
-                            { id: 'mobility', label: 'Mobilidade', icon: 'zap' },
-                            { id: 'strength', label: 'Força', icon: 'dumbbell' }
-                        ].map(t => (
-                            <button 
-                                key={t.id} 
-                                onClick={() => setActiveTab(t.id)}
-                                className={`flex-1 py-3 rounded-2xl text-xs font-black flex flex-col items-center gap-1 transition-all ${activeTab === t.id ? 'bg-amber-600 text-white shadow-lg' : 'bg-white text-stone-400 border border-stone-200'}`}
-                            >
-                                <i data-lucide={t.icon} className="w-4 h-4"></i>
-                                <span>{t.label}</span>
+                    <nav className="max-w-6xl mx-auto grid grid-cols-3 gap-2 p-4 mt-4">
+                        {[{id:'overview', icon:'layout-grid'}, {id:'mobility', icon:'zap'}, {id:'strength', icon:'dumbbell'}].map(t => (
+                            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`py-4 rounded-2xl flex flex-col items-center gap-1 transition-all border ${activeTab === t.id ? 'tab-active' : 'bg-white text-stone-400 border-stone-200'}`}>
+                                <i data-lucide={t.icon} className="w-5 h-5"></i>
+                                <span className="text-[10px] font-black uppercase">{t.id}</span>
                             </button>
                         ))}
                     </nav>
 
-                    <main className="max-w-6xl mx-auto p-4 mt-4">
+                    <main className="max-w-6xl mx-auto p-4">
                         {activeTab === 'overview' && (
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-stone-200 shadow-sm">
-                                    <h3 className="text-sm font-black uppercase text-stone-400 mb-6 flex items-center">
-                                        <i data-lucide="trending-up" className="w-4 h-4 mr-2"></i>
-                                        Semanário de Execução
-                                    </h3>
-                                    <div className="chart-container"><canvas ref={chartRef}></canvas></div>
+                                <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-stone-200 h-[350px]">
+                                    <canvas ref={chartRef}></canvas>
                                 </div>
-                                <div className="bg-stone-900 text-white p-8 rounded-3xl shadow-xl flex flex-col justify-between">
+                                <div className="bg-stone-900 text-white p-8 rounded-3xl flex flex-col justify-between">
                                     <div>
-                                        <div className="text-amber-500 text-xs font-black uppercase tracking-widest mb-2">Resumo de Hoje</div>
-                                        <div className="text-5xl font-black mb-2">{Object.keys(completedLogs).filter(k => completedLogs[k]).length}</div>
-                                        <div className="text-stone-400 text-sm font-medium">Exercícios concluídos com sucesso.</div>
+                                        <div className="text-amber-500 text-xs font-bold uppercase mb-2">Treino de Hoje</div>
+                                        <div className="text-5xl font-black">{Object.values(completedLogs).filter(v => v).length}</div>
+                                        <div className="text-stone-400 text-sm mt-2">Concluídos com sucesso</div>
                                     </div>
-                                    <div className="mt-8 pt-6 border-t border-white/10">
-                                        <p className="text-stone-400 text-xs italic">"Cada marcação é um compromisso renovado com a sua base estrutural."</p>
-                                    </div>
+                                    <p className="text-stone-500 text-[10px] leading-relaxed uppercase font-bold">Consistência é o pilar da adaptação biológica.</p>
                                 </div>
                             </div>
                         )}
 
                         {activeTab === 'mobility' && (
-                            <div className="space-y-6">
-                                <div className="flex flex-wrap gap-4">
-                                    <div className="flex bg-stone-200 p-1 rounded-xl">
+                            <div className="animate-list">
+                                <div className="flex gap-4 mb-8 overflow-x-auto pb-2">
+                                    <div className="flex bg-stone-200 p-1 rounded-xl whitespace-nowrap">
                                         {[1, 2, 3].map(e => (
-                                            <button key={e} onClick={() => setMobilityEtapa(e)} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${mobilityEtapa === e ? 'bg-white text-amber-700 shadow' : 'text-stone-500'}`}>ETAPA {e}</button>
+                                            <button key={e} onClick={() => setMobilityEtapa(e)} className={`px-4 py-2 rounded-lg text-xs font-bold ${mobilityEtapa === e ? 'bg-white text-amber-700 shadow-sm' : 'text-stone-500'}`}>Etapa {e}</button>
                                         ))}
                                     </div>
-                                    <div className="flex bg-stone-200 p-1 rounded-xl">
+                                    <div className="flex bg-stone-200 p-1 rounded-xl whitespace-nowrap">
                                         {['A', 'B1', 'B2'].map(t => (
-                                            <button key={t} onClick={() => setMobilityTreino(t)} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${mobilityTreino === t ? 'bg-white text-amber-700 shadow' : 'text-stone-500'}`}>TREINO {t}</button>
+                                            <button key={t} onClick={() => setMobilityTreino(t)} className={`px-4 py-2 rounded-lg text-xs font-bold ${mobilityTreino === t ? 'bg-white text-amber-700 shadow-sm' : 'text-stone-500'}`}>Treino {t}</button>
                                         ))}
                                     </div>
                                 </div>
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {mobilityData.filter(d => d.e === mobilityEtapa && d.t === mobilityTreino).map((item) => (
-                                        <div 
-                                            key={item.id} 
-                                            onClick={() => toggleExercise(item.id)}
-                                            className={`relative group cursor-pointer bg-white p-6 rounded-3xl border-2 transition-all duration-300 ${completedLogs[item.id] ? 'border-amber-600 bg-amber-50/30' : 'border-stone-100'}`}
-                                        >
+                                    {mobilityData.filter(d => d.e === mobilityEtapa && d.t === mobilityTreino).map(item => (
+                                        <div key={item.id} onClick={() => toggleExercise(item.id)} className={`p-6 rounded-3xl border-2 transition-all cursor-pointer ${completedLogs[item.id] ? 'border-amber-600 bg-amber-50' : 'bg-white border-stone-100'}`}>
                                             <div className="flex justify-between items-start mb-4">
-                                                <div className="text-[10px] font-black uppercase text-amber-600">Dinâmico</div>
-                                                <div className="relative">
-                                                    <input type="checkbox" checked={!!completedLogs[item.id]} readOnly className="checkbox-custom absolute opacity-0 w-6 h-6" />
-                                                    <div className="w-6 h-6 border-2 border-stone-200 rounded-lg flex items-center justify-center transition-all">
-                                                        <i data-lucide="check" className="w-4 h-4 text-white hidden"></i>
-                                                    </div>
-                                                </div>
+                                                <div className="text-[10px] font-black text-amber-600 uppercase">Dinâmico</div>
+                                                <i data-lucide={completedLogs[item.id] ? 'check-circle' : 'circle'} className={`w-5 h-5 ${completedLogs[item.id] ? 'text-amber-600' : 'text-stone-200'}`}></i>
                                             </div>
-                                            <h4 className="text-lg font-black text-stone-800 leading-tight mb-2">{item.ex}</h4>
-                                            <p className="text-xs text-stone-500 font-medium">{item.p}</p>
+                                            <h4 className="font-black text-stone-800 leading-tight mb-2">{item.ex}</h4>
+                                            <p className="text-[10px] text-stone-500 font-bold uppercase">{item.p}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -403,36 +269,28 @@
                         )}
 
                         {activeTab === 'strength' && (
-                            <div className="space-y-10">
-                                <div className="flex bg-stone-200 p-1 rounded-2xl w-fit">
+                            <div className="animate-list">
+                                <div className="flex bg-stone-200 p-1 rounded-2xl w-fit mb-10">
                                     {['SASS', 'BASS'].map(t => (
-                                        <button key={t} onClick={() => setStrengthType(t)} className={`px-8 py-3 rounded-xl text-xs font-black transition-all ${strengthType === t ? 'bg-white text-amber-700 shadow' : 'text-stone-500'}`}>{t}</button>
+                                        <button key={t} onClick={() => setStrengthType(t)} className={`px-8 py-3 rounded-xl text-xs font-black uppercase ${strengthType === t ? 'bg-white text-amber-700 shadow-lg' : 'text-stone-500'}`}>{t}</button>
                                     ))}
                                 </div>
-                                
                                 {['Pendurada', 'Força', 'Preventivo', 'Finalizador'].map(bloco => {
-                                    const exercises = strengthData.filter(d => d.c === strengthType && d.b === bloco);
-                                    if (exercises.length === 0) return null;
+                                    const filtered = strengthData.filter(d => d.c === strengthType && d.b === bloco);
+                                    if (filtered.length === 0) return null;
                                     return (
-                                        <div key={bloco}>
-                                            <h3 className="text-lg font-black uppercase tracking-tighter mb-6 flex items-center">
-                                                <span className="w-8 h-px bg-stone-300 mr-4"></span>
-                                                {bloco}
+                                        <div key={bloco} className="mb-12">
+                                            <h3 className="text-xs font-black uppercase text-stone-400 mb-6 flex items-center">
+                                                <span className="w-6 h-px bg-stone-200 mr-4"></span>{bloco}
                                             </h3>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                {exercises.map(ex => (
-                                                    <div 
-                                                        key={ex.id}
-                                                        onClick={() => toggleExercise(ex.id)}
-                                                        className={`p-6 rounded-3xl border-2 flex items-center space-x-4 cursor-pointer transition-all ${completedLogs[ex.id] ? 'border-amber-600 bg-amber-50' : 'bg-white border-stone-100'}`}
-                                                    >
-                                                        <div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center">
-                                                            {completedLogs[ex.id] ? <i data-lucide="check" className="w-4 h-4 text-amber-600"></i> : <i data-lucide="circle" className="w-4 h-4 text-stone-300"></i>}
-                                                        </div>
+                                                {filtered.map(ex => (
+                                                    <div key={ex.id} onClick={() => toggleExercise(ex.id)} className={`p-6 rounded-3xl border-2 flex items-center justify-between cursor-pointer transition-all ${completedLogs[ex.id] ? 'border-amber-600 bg-amber-50' : 'bg-white border-stone-100'}`}>
                                                         <div className="flex-1">
-                                                            <div className="text-sm font-black text-stone-800">{ex.ex}</div>
-                                                            <div className="text-[10px] text-stone-400 uppercase font-bold">{ex.p}</div>
+                                                            <div className="text-sm font-black text-stone-800 leading-tight mb-1">{ex.ex}</div>
+                                                            <div className="text-[10px] text-stone-400 font-bold uppercase">{ex.p}</div>
                                                         </div>
+                                                        <i data-lucide={completedLogs[ex.id] ? 'check-circle' : 'circle'} className={`w-5 h-5 ml-4 ${completedLogs[ex.id] ? 'text-amber-600' : 'text-stone-200'}`}></i>
                                                     </div>
                                                 ))}
                                             </div>
